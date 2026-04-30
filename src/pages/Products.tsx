@@ -17,6 +17,12 @@ const NETWORK_COLORS: Record<Network, string> = {
   AirtelTigo: "from-blue-500 to-blue-700",
 };
 
+const NETWORK_CARD: Record<Network, string> = {
+  MTN: "bg-gradient-to-br from-yellow-300/30 to-yellow-500/10 border-yellow-500/50",
+  Telecel: "bg-gradient-to-br from-red-500/30 to-red-700/10 border-red-500/50",
+  AirtelTigo: "bg-gradient-to-br from-blue-500/30 to-blue-700/10 border-blue-500/50",
+};
+
 export default function Products() {
   const { state } = useStore();
   const [params, setParams] = useSearchParams();
@@ -34,7 +40,7 @@ export default function Products() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Pick a product</h1>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Buy Data</h1>
         <p className="mt-2 text-muted-foreground">No signup required. Pay and receive in seconds.</p>
       </div>
 
@@ -60,7 +66,7 @@ export default function Products() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {packages.map((p) => (
-              <Card key={p.id} className="p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5">
+              <Card key={p.id} className={`p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 ${NETWORK_CARD[p.network]}`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className={`px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${NETWORK_COLORS[p.network]}`}>{p.network}</div>
                   <Badge variant="secondary">{p.validity}</Badge>

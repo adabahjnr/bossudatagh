@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 
 const links = [
   { to: "/", label: "Home" },
-  { to: "/products", label: "Products" },
+  { to: "/products", label: "Buy Data" },
   { to: "/track", label: "Track Order" },
   { to: "/become-agent", label: "Become Agent" },
 ];
