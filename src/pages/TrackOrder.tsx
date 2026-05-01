@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi, shortDate } from "@/lib/format";
 import { CheckCircle2, Loader2, XCircle, RotateCcw } from "lucide-react";
 import type { Order } from "@/lib/types";
@@ -17,16 +17,38 @@ const statusMap = {
 } as const;
 
 export default function TrackOrder() {
-  const { state } = useStore();
   const [ref, setRef] = useState("");
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState<Order | null | "notfound">(null);
+  const [searching, setSearching] = useState(false);
 
-  const search = () => {
-    const order = state.orders.find(
-      (o) => o.ref.toLowerCase() === ref.trim().toLowerCase() && o.recipient === phone.trim(),
-    );
-    setResult(order ?? "notfound");
+  const search = async () => {
+    if (!ref.trim() || !phone.trim()) return;
+    setSearching(true);
+    const { data } = await supabase
+      .from("orders")
+      .select("*")
+      .ilike("ref", ref.trim())
+      .eq("recipient", phone.trim())
+      .maybeSingle();
+    setSearching(false);
+    if (!data) {
+      setResult("notfound");
+      return;
+    }
+    setResult({
+      id: data.id,
+      ref: data.ref,
+      productLabel: data.product_label,
+      network: data.network ?? undefined,
+      recipient: data.recipient,
+      email: data.email ?? undefined,
+      amount: Number(data.amount),
+      status: data.status,
+      createdAt: data.created_at,
+      buyerType: data.buyer_type,
+      agentId: data.agent_id ?? undefined,
+    });
   };
 
   return (
@@ -45,7 +67,9 @@ export default function TrackOrder() {
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0244000000" maxLength={10} />
           </div>
         </div>
-        <Button className="w-full mt-6" onClick={search}>Track order</Button>
+        <Button className="w-full mt-6" disabled={searching} onClick={search}>
+          {searching ? "Searching…" : "Track order"}
+        </Button>
       </Card>
 
       {result === "notfound" && (
