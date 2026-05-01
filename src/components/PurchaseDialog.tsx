@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -24,11 +24,11 @@ export function PurchaseDialog({
   onOpenChange: (o: boolean) => void;
   pricing?: "public" | "agent";
 }) {
-  const { placeOrder } = useStore();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"form" | "success">("form");
   const [orderRef, setOrderRef] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   if (!item) return null;
   const price = pricing === "agent" ? item.pkg.priceAgent : item.pkg.pricePublic;
@@ -45,23 +45,44 @@ export function PurchaseDialog({
     onOpenChange(o);
   };
 
-  const submit = () => {
+  const genRef = () =>
+    "BD-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+
+  const submit = async () => {
     if (!/^0\d{9}$/.test(phone)) {
       toast.error("Enter a valid 10-digit Ghana phone number");
       return;
     }
-    const order = placeOrder({
-      productLabel: label,
-      network: item.kind === "data" ? item.pkg.network : undefined,
-      recipient: phone,
-      email: email || undefined,
-      amount: price,
-      buyerType: item.agentId ? "agent" : "public",
-      agentId: item.agentId,
-    });
-    setOrderRef(order.ref);
+    setSubmitting(true);
+    const ref = genRef();
+    const { data, error } = await supabase
+      .from("orders")
+      .insert({
+        ref,
+        product_label: label,
+        network: item.kind === "data" ? item.pkg.network : null,
+        recipient: phone,
+        email: email || null,
+        amount: price,
+        buyer_type: item.agentId ? "agent" : "public",
+        agent_id: item.agentId ?? null,
+        status: "processing",
+      })
+      .select("id, ref")
+      .single();
+    if (error || !data) {
+      setSubmitting(false);
+      toast.error(error?.message ?? "Could not place order");
+      return;
+    }
+    setOrderRef(data.ref);
     setStep("success");
+    setSubmitting(false);
     toast.success("Payment received. Delivering now…");
+    // Simulate fulfillment ~1.8s later
+    setTimeout(() => {
+      supabase.from("orders").update({ status: "delivered" }).eq("id", data.id).then(() => {});
+    }, 1800);
   };
 
   const copy = () => {
@@ -93,7 +114,9 @@ export function PurchaseDialog({
                 <Label>Email (optional)</Label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
-              <Button className="w-full bg-gradient-primary" onClick={submit}>Pay {cedi(price)}</Button>
+              <Button className="w-full bg-gradient-primary" disabled={submitting} onClick={submit}>
+                {submitting ? "Processing…" : `Pay ${cedi(price)}`}
+              </Button>
               <p className="text-xs text-muted-foreground text-center">Simulated payment for demo. Production wires to Paystack/Hubtel.</p>
             </div>
           </>
