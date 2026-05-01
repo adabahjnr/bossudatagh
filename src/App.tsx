@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { StoreProvider } from "@/lib/store";
+import { AuthProvider } from "@/hooks/useAuth";
+import { AuthStoreBridge } from "@/components/AuthStoreBridge";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import PublicLayout from "@/layouts/PublicLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -15,6 +17,7 @@ import Products from "@/pages/Products";
 import TrackOrder from "@/pages/TrackOrder";
 import BecomeAgent from "@/pages/BecomeAgent";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import MiniStore from "@/pages/MiniStore";
 import Overview from "@/pages/dashboard/Overview";
 import WalletPage from "@/pages/dashboard/WalletPage";
@@ -36,20 +39,23 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <StoreProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner position="top-right" richColors />
-          <BrowserRouter>
-            <MaintenanceGate>
-              <Routes>
-                <Route element={<PublicLayout />}>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/products" element={<Products />} />
-                  <Route path="/track" element={<TrackOrder />} />
-                  <Route path="/become-agent" element={<BecomeAgent />} />
-                  <Route path="/login" element={<Login />} />
-                </Route>
+      <AuthProvider>
+        <StoreProvider>
+          <AuthStoreBridge />
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="top-right" richColors />
+            <BrowserRouter>
+              <MaintenanceGate>
+                <Routes>
+                  <Route element={<PublicLayout />}>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/products" element={<Products />} />
+                    <Route path="/track" element={<TrackOrder />} />
+                    <Route path="/become-agent" element={<BecomeAgent />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                  </Route>
                 <Route path="/store/:slug" element={<MiniStore />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Overview />} />
@@ -76,11 +82,12 @@ const App = () => (
                   <Route path="maintenance" element={<AdminMaintenance />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </MaintenanceGate>
-          </BrowserRouter>
-        </TooltipProvider>
-      </StoreProvider>
+                </Routes>
+              </MaintenanceGate>
+            </BrowserRouter>
+          </TooltipProvider>
+        </StoreProvider>
+      </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cedi } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import type { DataPackage, CheckerPackage, Network } from "@/lib/types";
-import { Smartphone, GraduationCap } from "lucide-react";
+import { Smartphone, GraduationCap, Loader2 } from "lucide-react";
 
 const NETWORKS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
 const NETWORK_COLORS: Record<Network, string> = {
@@ -24,18 +24,51 @@ const NETWORK_CARD: Record<Network, string> = {
 };
 
 export default function Products() {
-  const { state } = useStore();
+  const [allPackages, setAllPackages] = useState<DataPackage[]>([]);
+  const [allCheckers, setAllCheckers] = useState<CheckerPackage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "checkers" ? "checkers" : "data";
   const network = (params.get("network") as Network | null) ?? "MTN";
 
   const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | { kind: "checker"; pkg: CheckerPackage } | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      supabase.from("data_packages").select("*").eq("active", true).order("price_public"),
+      supabase.from("checker_packages").select("*").eq("active", true).order("price_public"),
+    ]).then(([pkgRes, chkRes]) => {
+      if (cancelled) return;
+      const pkgs: DataPackage[] = (pkgRes.data ?? []).map((r: any) => ({
+        id: r.id,
+        network: r.network,
+        size: r.size,
+        validity: r.validity,
+        pricePublic: Number(r.price_public),
+        priceAgent: Number(r.price_agent),
+        active: r.active,
+      }));
+      const chks: CheckerPackage[] = (chkRes.data ?? []).map((r: any) => ({
+        id: r.id,
+        type: r.type,
+        pricePublic: Number(r.price_public),
+        priceAgent: Number(r.price_agent),
+        stock: r.stock,
+        active: r.active,
+      }));
+      setAllPackages(pkgs);
+      setAllCheckers(chks);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const packages = useMemo(
-    () => state.packages.filter((p) => p.active && p.network === network),
-    [state.packages, network],
+    () => allPackages.filter((p) => p.network === network),
+    [allPackages, network],
   );
-  const checkers = useMemo(() => state.checkers.filter((c) => c.active), [state.checkers]);
+  const checkers = allCheckers;
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -65,6 +98,11 @@ export default function Products() {
             ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {loading && (
+              <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading packages…
+              </div>
+            )}
             {packages.map((p) => (
               <Card key={p.id} className={`p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 ${NETWORK_CARD[p.network]}`}>
                 <div className="flex items-center justify-between mb-4">

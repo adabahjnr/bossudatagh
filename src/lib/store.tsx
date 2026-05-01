@@ -172,7 +172,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return u ?? null;
     },
 
-    logout: () => setState((s) => ({ ...s, currentUserId: null })),
+    logout: () => {
+      const w = window as unknown as { __bossuSignOut?: () => Promise<void> };
+      if (w.__bossuSignOut) void w.__bossuSignOut();
+      setState((s) => ({ ...s, currentUserId: null }));
+    },
 
     loginAsAdmin: () => {
       // Ensure an admin user exists

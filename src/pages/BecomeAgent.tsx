@@ -1,46 +1,68 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi } from "@/lib/format";
 import { toast } from "sonner";
 import { Check, Wallet, Users, Code, Store } from "lucide-react";
 
 export default function BecomeAgent() {
-  const { signupAgent, state } = useStore();
+  const { signUp } = useAuth();
   const nav = useNavigate();
-  const [step, setStep] = useState<"info" | "pay" | "otp">("info");
+  const [step, setStep] = useState<"info" | "pay">("info");
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", storeSlug: "" });
-  const [otp, setOtp] = useState("");
   const [pending, setPending] = useState(false);
+  const [agentFee, setAgentFee] = useState<number>(50);
 
-  const next = () => {
+  useEffect(() => {
+    supabase
+      .from("site_settings")
+      .select("agent_fee")
+      .eq("id", 1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.agent_fee != null) setAgentFee(Number(data.agent_fee));
+      });
+  }, []);
+
+  const next = async () => {
     if (!form.name || !form.email || !form.phone || !form.password || !form.storeSlug) {
       toast.error("Please fill in all fields"); return;
     }
     if (!/^0\d{9}$/.test(form.phone)) { toast.error("Invalid phone number"); return; }
     if (form.password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
-    if (state.users.some((u) => u.storeSlug === form.storeSlug.toLowerCase())) {
-      toast.error("That store URL is taken, choose another."); return;
-    }
+    // Check slug availability
+    const { data: taken } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("store_slug", form.storeSlug.toLowerCase())
+      .maybeSingle();
+    if (taken) { toast.error("That store URL is taken, choose another."); return; }
     setStep("pay");
   };
 
-  const pay = () => {
+  const pay = async () => {
     setPending(true);
-    setTimeout(() => {
-      setPending(false);
-      setStep("otp");
-      toast.success(`Payment of ${cedi(state.settings.agentFee)} received (simulated)`);
-    }, 1200);
-  };
-
-  const verify = () => {
-    if (otp.length !== 6) { toast.error("Enter the 6-digit code"); return; }
-    signupAgent(form);
+    // Simulate ₵50 payment delay
+    await new Promise((r) => setTimeout(r, 900));
+    toast.success(`Payment of ${cedi(agentFee)} received (simulated)`);
+    const { error } = await signUp({
+      email: form.email,
+      password: form.password,
+      name: form.name,
+      phone: form.phone,
+      storeSlug: form.storeSlug.toLowerCase(),
+    });
+    setPending(false);
+    if (error) {
+      toast.error(error);
+      setStep("info");
+      return;
+    }
     toast.success("Welcome aboard! Your store is live.");
     nav("/dashboard");
   };
@@ -53,7 +75,7 @@ export default function BecomeAgent() {
             {step === "info" && (
               <>
                 <h1 className="text-2xl font-bold">Create your agent account</h1>
-                <p className="text-muted-foreground mt-1">One-time fee of {cedi(state.settings.agentFee)}. Activate instantly.</p>
+                <p className="text-muted-foreground mt-1">One-time fee of {cedi(agentFee)}. Activate instantly.</p>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2"><Label>Full name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
                   <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} maxLength={10} placeholder="0244000000" /></div>
@@ -73,23 +95,15 @@ export default function BecomeAgent() {
             {step === "pay" && (
               <>
                 <h1 className="text-2xl font-bold">Pay registration fee</h1>
-                <p className="text-muted-foreground mt-1">One-time {cedi(state.settings.agentFee)} to activate your account.</p>
+                <p className="text-muted-foreground mt-1">One-time {cedi(agentFee)} to activate your account.</p>
                 <div className="mt-6 rounded-xl bg-gradient-primary text-primary-foreground p-6">
                   <div className="text-sm opacity-80">Total due</div>
-                  <div className="text-4xl font-bold">{cedi(state.settings.agentFee)}</div>
+                  <div className="text-4xl font-bold">{cedi(agentFee)}</div>
                   <div className="mt-3 text-xs opacity-80">Includes wallet, mini-store, API key, referrals</div>
                 </div>
                 <Button className="w-full mt-6" disabled={pending} onClick={pay}>
-                  {pending ? "Processing payment…" : `Pay ${cedi(state.settings.agentFee)} (simulated)`}
+                  {pending ? "Processing payment…" : `Pay ${cedi(agentFee)} (simulated)`}
                 </Button>
-              </>
-            )}
-            {step === "otp" && (
-              <>
-                <h1 className="text-2xl font-bold">Verify your phone</h1>
-                <p className="text-muted-foreground mt-1">We sent a 6-digit code to {form.phone}. (Demo: enter any 6 digits.)</p>
-                <div className="mt-6 space-y-2"><Label>OTP code</Label><Input value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} placeholder="123456" /></div>
-                <Button className="w-full mt-6 bg-gradient-primary" onClick={verify}>Verify & activate</Button>
               </>
             )}
           </Card>
