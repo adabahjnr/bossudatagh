@@ -7,6 +7,7 @@ import NotFound from "./pages/NotFound.tsx";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { StoreProvider } from "@/lib/store";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AuthStoreBridge } from "@/components/AuthStoreBridge";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import PublicLayout from "@/layouts/PublicLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -40,6 +41,7 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <StoreProvider>
+          <AuthStoreBridge />
           <TooltipProvider>
             <Toaster />
             <Sonner position="top-right" richColors />
