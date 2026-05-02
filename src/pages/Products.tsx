@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cedi } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
-import type { DataPackage, CheckerPackage, Network } from "@/lib/types";
-import { Smartphone, GraduationCap, Loader2 } from "lucide-react";
+import type { DataPackage, Network } from "@/lib/types";
+import { Smartphone, Loader2 } from "lucide-react";
 
 const NETWORKS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
 const NETWORK_COLORS: Record<Network, string> = {
@@ -25,20 +25,15 @@ const NETWORK_CARD: Record<Network, string> = {
 
 export default function Products() {
   const [allPackages, setAllPackages] = useState<DataPackage[]>([]);
-  const [allCheckers, setAllCheckers] = useState<CheckerPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "checkers" ? "checkers" : "data";
   const network = (params.get("network") as Network | null) ?? "MTN";
 
-  const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | { kind: "checker"; pkg: CheckerPackage } | null>(null);
+  const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      supabase.from("data_packages").select("*").eq("active", true).order("price_public"),
-      supabase.from("checker_packages").select("*").eq("active", true).order("price_public"),
-    ]).then(([pkgRes, chkRes]) => {
+    supabase.from("data_packages").select("*").eq("active", true).order("price_public").then((pkgRes) => {
       if (cancelled) return;
       const pkgs: DataPackage[] = (pkgRes.data ?? []).map((r: any) => ({
         id: r.id,
@@ -49,16 +44,7 @@ export default function Products() {
         priceAgent: Number(r.price_agent),
         active: r.active,
       }));
-      const chks: CheckerPackage[] = (chkRes.data ?? []).map((r: any) => ({
-        id: r.id,
-        type: r.type,
-        pricePublic: Number(r.price_public),
-        priceAgent: Number(r.price_agent),
-        stock: r.stock,
-        active: r.active,
-      }));
       setAllPackages(pkgs);
-      setAllCheckers(chks);
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -68,7 +54,6 @@ export default function Products() {
     () => allPackages.filter((p) => p.network === network),
     [allPackages, network],
   );
-  const checkers = allCheckers;
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -77,10 +62,9 @@ export default function Products() {
         <p className="mt-2 text-muted-foreground">No signup required. Pay and receive in seconds.</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setParams({ tab: v, ...(v === "data" ? { network } : {}) })}>
+      <Tabs value="data">
         <TabsList className="mx-auto mb-8 flex w-fit">
           <TabsTrigger value="data"><Smartphone className="h-4 w-4 mr-2" /> Data Bundles</TabsTrigger>
-          <TabsTrigger value="checkers"><GraduationCap className="h-4 w-4 mr-2" /> Result Checkers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="data">
@@ -120,24 +104,6 @@ export default function Products() {
               </Card>
             ))}
             {packages.length === 0 && <p className="text-muted-foreground col-span-full text-center">No packages available right now.</p>}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="checkers">
-          <div className="grid gap-4 sm:grid-cols-2 max-w-3xl mx-auto">
-            {checkers.map((c) => (
-              <Card key={c.id} className="p-6 shadow-soft transition-smooth hover:shadow-elegant">
-                <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white mb-4">
-                  <GraduationCap className="h-6 w-6" />
-                </div>
-                <div className="text-2xl font-bold">{c.type} Checker PIN</div>
-                <div className="text-sm text-muted-foreground mt-1">In stock: {c.stock}</div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div className="text-2xl font-bold text-gradient-primary">{cedi(c.pricePublic)}</div>
-                  <Button onClick={() => setPurchase({ kind: "checker", pkg: c })}>Buy</Button>
-                </div>
-              </Card>
-            ))}
           </div>
         </TabsContent>
       </Tabs>

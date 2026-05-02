@@ -1,13 +1,12 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Shield, Wallet, Zap, Smartphone, GraduationCap, Users, Star } from "lucide-react";
+import { ArrowRight, Shield, Wallet, Zap, Smartphone, Users, Star } from "lucide-react";
 
 const products = [
   { title: "MTN Data", color: "from-yellow-400 to-yellow-600", icon: Smartphone, desc: "Fast MTN bundles, instant delivery", to: "/products?network=MTN" },
   { title: "Telecel Data", color: "from-red-500 to-red-700", icon: Smartphone, desc: "Affordable Telecel bundles", to: "/products?network=Telecel" },
   { title: "AirtelTigo Data", color: "from-blue-500 to-blue-700", icon: Smartphone, desc: "Smooth AirtelTigo offers", to: "/products?network=AirtelTigo" },
-  { title: "Result Checkers", color: "from-emerald-500 to-emerald-700", icon: GraduationCap, desc: "BECE & WASSCE PINs", to: "/products?tab=checkers" },
 ];
 
 const testimonials = [
@@ -25,7 +24,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-20 md:py-28 relative">
           <div className="max-w-3xl">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur px-4 py-1.5 text-sm font-medium border border-white/20 mb-6">
-              <Star className="h-4 w-4 text-accent" /> Ghana's #1 data & checker platform
+              <Star className="h-4 w-4 text-accent" /> Ghana's #1 data platform
             </span>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
               Buy Data Instantly. <br />
@@ -62,7 +61,7 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Everything you need</h2>
-          <p className="mt-3 text-muted-foreground">All major networks. All major exam checkers. One platform.</p>
+          <p className="mt-3 text-muted-foreground">All major networks. One platform.</p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {products.map((p) => {
