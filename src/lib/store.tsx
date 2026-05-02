@@ -286,7 +286,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
       void supabase.from("profiles").update({ wallet_balance: newBal }).eq("id", userId);
       void supabase.from("wallet_transactions").insert({
-        user_id: userId, type: "admin_credit", amount, description: "Admin credit",
+        user_id: userId, type: "adjustment", amount, description: "Admin credit",
       });
     },
 
@@ -473,7 +473,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     updateSettings: (patch) => {
       setState((st) => ({ ...st, settings: { ...st.settings, ...patch } }));
-      const row: Record<string, unknown> = {};
+      const row: {
+        site_name?: string;
+        whatsapp_number?: string;
+        agent_fee?: number;
+        min_withdrawal?: number;
+        maintenance_mode?: boolean;
+        maintenance_message?: string;
+        banner?: string;
+      } = {};
       if (patch.siteName !== undefined) row.site_name = patch.siteName;
       if (patch.whatsappNumber !== undefined) row.whatsapp_number = patch.whatsappNumber;
       if (patch.agentFee !== undefined) row.agent_fee = patch.agentFee;
