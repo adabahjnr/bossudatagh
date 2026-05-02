@@ -119,10 +119,17 @@ export function SupabaseDataBridge() {
         ? supabase.from("withdrawals").select("*").order("created_at", { ascending: false }).limit(200)
         : supabase.from("withdrawals").select("*").eq("agent_id", user.id).order("created_at", { ascending: false });
       const profilesQ = isAdmin
-        ? supabase.from("profiles").select("*, user_roles(role)")
-        : supabase.from("profiles").select("*, user_roles(role)").or(`id.eq.${user.id},parent_agent_id.eq.${user.id}`);
+        ? supabase.from("profiles").select("*")
+        : supabase.from("profiles").select("*").or(`id.eq.${user.id},parent_agent_id.eq.${user.id}`);
 
-      const [{ data: orders }, { data: ws }, { data: profs }] = await Promise.all([ordersQ, withdrawalsQ, profilesQ]);
+      const [{ data: orders }, { data: ws }, { data: profs }, { data: roleRows }] = await Promise.all([
+        ordersQ,
+        withdrawalsQ,
+        profilesQ,
+        isAdmin
+          ? supabase.from("user_roles").select("user_id, role")
+          : supabase.from("user_roles").select("user_id, role").eq("user_id", user.id),
+      ]);
       if (cancelled) return;
 
       const orderRows: Order[] = (orders ?? []).map((o) => ({
@@ -151,6 +158,13 @@ export function SupabaseDataBridge() {
         createdAt: w.created_at,
       }));
 
+      const rolesByUser = new Map<string, string[]>();
+      (roleRows ?? []).forEach((r) => {
+        const arr = rolesByUser.get(r.user_id) ?? [];
+        arr.push(r.role);
+        rolesByUser.set(r.user_id, arr);
+      });
+
       type ProfRow = {
         id: string;
         name: string;
@@ -168,14 +182,13 @@ export function SupabaseDataBridge() {
         badges: string[];
         active: boolean;
         created_at: string;
-        user_roles?: { role: string }[] | null;
       };
 
       const userRows: User[] = ((profs ?? []) as ProfRow[]).map((p) => {
-        const roleArr = p.user_roles ?? [];
-        const role: User["role"] = roleArr.some((r) => r.role === "admin")
+        const roleArr = rolesByUser.get(p.id) ?? [];
+        const role: User["role"] = roleArr.includes("admin")
           ? "admin"
-          : roleArr.some((r) => r.role === "subagent")
+          : roleArr.includes("subagent")
             ? "subagent"
             : "agent";
         return {
