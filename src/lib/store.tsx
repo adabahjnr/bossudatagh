@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   defaultSiteSettings,
   mockAgents,
@@ -207,24 +208,63 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         status: input.status ?? "processing",
       };
       setState((s) => ({ ...s, orders: [order, ...s.orders] }));
-      // Simulate fulfillment
-      setTimeout(() => {
-        setStateRaw((s) => ({
-          ...s,
-          orders: s.orders.map((o) => (o.id === order.id ? { ...o, status: "delivered" } : o)),
-        }));
-      }, 1800);
+      // Persist to Supabase + record wallet transaction for agent buys
+      void (async () => {
+        const { data, error } = await supabase
+          .from("orders")
+          .insert({
+            ref: order.ref,
+            product_label: order.productLabel,
+            network: order.network ?? null,
+            recipient: order.recipient,
+            email: order.email ?? null,
+            amount: order.amount,
+            buyer_type: order.buyerType,
+            agent_id: order.agentId ?? null,
+            status: order.status,
+          })
+          .select("id")
+          .single();
+        if (!error && data && order.agentId) {
+          await supabase.from("wallet_transactions").insert({
+            user_id: order.agentId,
+            type: "purchase",
+            amount: -order.amount,
+            description: order.productLabel,
+            ref: order.ref,
+          });
+        }
+        // Simulate fulfillment
+        setTimeout(async () => {
+          setStateRaw((s) => ({
+            ...s,
+            orders: s.orders.map((o) => (o.id === order.id ? { ...o, status: "delivered" } : o)),
+          }));
+          if (data?.id) await supabase.from("orders").update({ status: "delivered" }).eq("id", data.id);
+        }, 1800);
+      })();
       return order;
     },
 
-    updateOrderStatus: (id, status) =>
-      setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) })),
+    updateOrderStatus: (id, status) => {
+      setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) });
+      // The local id may be a temp id; if it matches a UUID, update by ref instead.
+      const o = state.orders.find((x) => x.id === id);
+      if (o) void supabase.from("orders").update({ status }).eq("ref", o.ref);
+    },
 
-    topUpWallet: (userId, amount) =>
+    topUpWallet: (userId, amount) => {
       setState((s) => ({
         ...s,
         users: s.users.map((u) => (u.id === userId ? { ...u, walletBalance: u.walletBalance + amount } : u)),
-      })),
+      }));
+      const u = state.users.find((x) => x.id === userId);
+      const newBal = (u?.walletBalance ?? 0) + amount;
+      void supabase.from("profiles").update({ wallet_balance: newBal }).eq("id", userId);
+      void supabase.from("wallet_transactions").insert({
+        user_id: userId, type: "topup", amount, description: "Wallet top-up",
+      });
+    },
 
     deductWallet: (userId, amount) => {
       const u = state.users.find((x) => x.id === userId);
@@ -233,14 +273,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...s,
         users: s.users.map((x) => (x.id === userId ? { ...x, walletBalance: x.walletBalance - amount } : x)),
       }));
+      void supabase.from("profiles").update({ wallet_balance: u.walletBalance - amount }).eq("id", userId);
       return true;
     },
 
-    creditWallet: (userId, amount) =>
+    creditWallet: (userId, amount) => {
+      const u = state.users.find((x) => x.id === userId);
+      const newBal = (u?.walletBalance ?? 0) + amount;
       setState((s) => ({
         ...s,
-        users: s.users.map((u) => (u.id === userId ? { ...u, walletBalance: u.walletBalance + amount } : u)),
-      })),
+        users: s.users.map((x) => (x.id === userId ? { ...x, walletBalance: newBal } : x)),
+      }));
+      void supabase.from("profiles").update({ wallet_balance: newBal }).eq("id", userId);
+      void supabase.from("wallet_transactions").insert({
+        user_id: userId, type: "admin_credit", amount, description: "Admin credit",
+      });
+    },
 
     requestWithdrawal: (req) => {
       const agent = state.users.find((u) => u.id === req.agentId);
@@ -252,6 +300,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         agentName: agent?.name ?? "Unknown",
       };
       setState((s) => ({ ...s, withdrawals: [w, ...s.withdrawals] }));
+      void supabase.from("withdrawals").insert({
+        agent_id: req.agentId,
+        amount: req.amount,
+        momo_number: req.momoNumber,
+        network: req.network,
+        account_name: req.accountName,
+        status: "pending",
+      });
     },
 
     setWithdrawalStatus: (id, status) =>
@@ -262,32 +318,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           users = s.users.map((u) =>
             u.id === w.agentId ? { ...u, walletBalance: Math.max(0, u.walletBalance - w.amount) } : u,
           );
+          void supabase.from("profiles")
+            .update({ wallet_balance: Math.max(0, (users.find((u) => u.id === w.agentId)?.walletBalance ?? 0)) })
+            .eq("id", w.agentId);
+        }
+        if (w) {
+          // Try update by id (real UUID from Supabase) — silently no-op for legacy local-only rows.
+          void supabase.from("withdrawals").update({ status }).eq("id", w.id);
         }
         return { ...s, users, withdrawals: s.withdrawals.map((x) => (x.id === id ? { ...x, status } : x)) };
       }),
 
-    upsertPackage: (p) =>
+    upsertPackage: (p) => {
       setState((s) => {
         const exists = s.packages.find((x) => x.id === p.id);
         return {
           ...s,
           packages: exists ? s.packages.map((x) => (x.id === p.id ? p : x)) : [...s.packages, p],
         };
-      }),
+      });
+      const isUuid = /^[0-9a-f-]{36}$/i.test(p.id);
+      const row = {
+        network: p.network,
+        size: p.size,
+        validity: p.validity,
+        price_public: p.pricePublic,
+        price_agent: p.priceAgent,
+        active: p.active,
+      };
+      if (isUuid) {
+        void supabase.from("data_packages").update(row).eq("id", p.id);
+      } else {
+        void supabase.from("data_packages").insert(row).select("id").single().then(({ data }) => {
+          if (data?.id) {
+            setStateRaw((s) => ({
+              ...s,
+              packages: s.packages.map((x) => (x.id === p.id ? { ...x, id: data.id } : x)),
+            }));
+          }
+        });
+      }
+    },
 
-    deletePackage: (id) => setState((s) => ({ ...s, packages: s.packages.filter((p) => p.id !== id) })),
+    deletePackage: (id) => {
+      setState((s) => ({ ...s, packages: s.packages.filter((p) => p.id !== id) }));
+      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("data_packages").delete().eq("id", id);
+    },
 
-    upsertChecker: (c) =>
+    upsertChecker: (c) => {
       setState((s) => {
         const exists = s.checkers.find((x) => x.id === c.id);
         return {
           ...s,
           checkers: exists ? s.checkers.map((x) => (x.id === c.id ? c : x)) : [...s.checkers, c],
         };
-      }),
+      });
+      if (/^[0-9a-f-]{36}$/i.test(c.id)) {
+        void supabase.from("checker_packages").update({
+          type: c.type,
+          price_public: c.pricePublic,
+          price_agent: c.priceAgent,
+          stock: c.stock,
+          active: c.active,
+        }).eq("id", c.id);
+      }
+    },
 
-    setUserActive: (id, active) =>
-      setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, active } : u)) })),
+    setUserActive: (id, active) => {
+      setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, active } : u)) }));
+      void supabase.from("profiles").update({ active }).eq("id", id);
+    },
 
     createCampaign: ({ name, dataSize, network, totalCodes }) => {
       const codes = Array.from({ length: totalCodes }, () => ({
@@ -303,11 +403,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
       setState((s) => ({ ...s, campaigns: [campaign, ...s.campaigns] }));
+      void (async () => {
+        const { data } = await supabase.from("campaigns").insert({
+          name, data_size: dataSize, network, total_codes: totalCodes, redeemed: 0, active: true,
+        }).select("id").single();
+        if (data?.id) {
+          await supabase.from("campaign_codes").insert(codes.map((c) => ({ campaign_id: data.id, code: c.code })));
+          setStateRaw((s) => ({
+            ...s,
+            campaigns: s.campaigns.map((c) => (c.id === campaign.id ? { ...c, id: data.id } : c)),
+          }));
+        }
+      })();
       return campaign;
     },
 
-    setCampaignActive: (id, active) =>
-      setState((s) => ({ ...s, campaigns: s.campaigns.map((c) => (c.id === id ? { ...c, active } : c)) })),
+    setCampaignActive: (id, active) => {
+      setState((s) => ({ ...s, campaigns: s.campaigns.map((c) => (c.id === id ? { ...c, active } : c)) }));
+      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("campaigns").update({ active }).eq("id", id);
+    },
 
     redeemCode: (code, phone) => {
       const upper = code.trim().toUpperCase();
@@ -330,23 +444,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : s.redemptionsByPhone;
         return { ...s, campaigns, redemptionsByPhone };
       });
+      // Also try server-side redemption (authoritative). Ignore mismatch silently.
+      void supabase.rpc("redeem_code", { _code: upper, _phone: phoneTrim });
       return result;
     },
 
     pushNotification: (n) =>
-      setState((s) => ({
-        ...s,
-        notifications: [
-          { ...n, id: "n-" + Math.random().toString(36).slice(2, 9), createdAt: new Date().toISOString() },
-          ...s.notifications,
-        ],
-      })),
+      {
+        const localId = "n-" + Math.random().toString(36).slice(2, 9);
+        setState((s) => ({
+          ...s,
+          notifications: [
+            { ...n, id: localId, createdAt: new Date().toISOString() },
+            ...s.notifications,
+          ],
+        }));
+        void supabase.from("notifications").insert({
+          title: n.title, message: n.message, type: n.type, audience: n.audience,
+        }).select("id, created_at").single().then(({ data }) => {
+          if (data?.id) {
+            setStateRaw((s) => ({
+              ...s,
+              notifications: s.notifications.map((x) => x.id === localId ? { ...x, id: data.id, createdAt: data.created_at } : x),
+            }));
+          }
+        });
+      },
 
-    updateSettings: (s) => setState((st) => ({ ...st, settings: { ...st.settings, ...s } })),
+    updateSettings: (patch) => {
+      setState((st) => ({ ...st, settings: { ...st.settings, ...patch } }));
+      const row: Record<string, unknown> = {};
+      if (patch.siteName !== undefined) row.site_name = patch.siteName;
+      if (patch.whatsappNumber !== undefined) row.whatsapp_number = patch.whatsappNumber;
+      if (patch.agentFee !== undefined) row.agent_fee = patch.agentFee;
+      if (patch.minWithdrawal !== undefined) row.min_withdrawal = patch.minWithdrawal;
+      if (patch.maintenanceMode !== undefined) row.maintenance_mode = patch.maintenanceMode;
+      if (patch.maintenanceMessage !== undefined) row.maintenance_message = patch.maintenanceMessage;
+      if (patch.banner !== undefined) row.banner = patch.banner;
+      if (Object.keys(row).length) void supabase.from("site_settings").update(row).eq("id", 1);
+    },
 
     regenerateApiKey: (userId) => {
       const key = genApiKey();
       setState((s) => ({ ...s, users: s.users.map((u) => (u.id === userId ? { ...u, apiKey: key } : u)) }));
+      void supabase.from("profiles").update({ api_key: key }).eq("id", userId);
       return key;
     },
   };
