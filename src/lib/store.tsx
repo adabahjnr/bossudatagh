@@ -247,7 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     updateOrderStatus: (id, status) => {
-      setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) });
+      setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) }));
       // The local id may be a temp id; if it matches a UUID, update by ref instead.
       const o = state.orders.find((x) => x.id === id);
       if (o) void supabase.from("orders").update({ status }).eq("ref", o.ref);
