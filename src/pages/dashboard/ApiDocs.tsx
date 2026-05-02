@@ -27,7 +27,7 @@ export default function ApiDocs() {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">API & Documentation</h1>
-        <p className="text-muted-foreground">Build external apps using your BossuData API key.</p>
+        <p className="text-muted-foreground">Build external apps using your GetEasyData API key.</p>
       </div>
 
       <Card className="p-6 shadow-soft bg-gradient-primary text-primary-foreground">

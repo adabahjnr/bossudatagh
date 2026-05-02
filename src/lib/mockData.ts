@@ -36,7 +36,7 @@ export const mockAgents: User[] = [
     storeSlug: "kwame",
     storeTemplate: "neon",
     storeBrand: "Kwame Data Hub",
-    referralCode: "BOSS-KWAME",
+    referralCode: "EASY-KWAME",
     apiKey: "bd_live_4f8a12c0e3b7",
     totalSales: 1240,
     totalReferrals: 8,
@@ -54,7 +54,7 @@ export const mockAgents: User[] = [
     storeSlug: "ama",
     storeTemplate: "minimal",
     storeBrand: "Ama Bundles",
-    referralCode: "BOSS-AMA",
+    referralCode: "EASY-AMA",
     apiKey: "bd_live_9c2d44a1ff10",
     totalSales: 880,
     totalReferrals: 4,
@@ -72,7 +72,7 @@ export const mockAgents: User[] = [
     storeSlug: "yaw",
     storeTemplate: "bold",
     storeBrand: "Yaw Express Data",
-    referralCode: "BOSS-YAW",
+    referralCode: "EASY-YAW",
     apiKey: "bd_live_a17fcc28b9e5",
     totalSales: 540,
     totalReferrals: 2,
@@ -88,7 +88,7 @@ export const mockAgents: User[] = [
     role: "subagent",
     walletBalance: 40,
     parentAgentId: "u-agent-1",
-    referralCode: "BOSS-AKUA",
+    referralCode: "EASY-AKUA",
     totalSales: 120,
     badges: [],
     createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5).toISOString(),
@@ -119,18 +119,18 @@ export const mockCampaigns: FreeDataCampaign[] = [
 ];
 
 export const defaultSiteSettings: SiteSettings = {
-  siteName: "BossuData",
+  siteName: "GetEasyData",
   whatsappNumber: "233244000000",
   agentFee: 50,
   minWithdrawal: 50,
   maintenanceMode: false,
-  maintenanceMessage: "We're upgrading BossuData. Be right back!",
+  maintenanceMessage: "We're upgrading GetEasyData. Be right back!",
 };
 
 export const mockNotifications: Notification[] = [
   {
     id: "n1",
-    title: "Welcome to BossuData",
+    title: "Welcome to GetEasyData",
     message: "New rewards system live this week. Top sellers earn bonus credits!",
     type: "info",
     audience: "agents",

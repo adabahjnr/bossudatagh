@@ -11,7 +11,7 @@ const products = [
 ];
 
 const testimonials = [
-  { name: "Esi K.", text: "I bought data in 10 seconds. BossuData is the real deal.", role: "Customer" },
+  { name: "Esi K.", text: "I bought data in 10 seconds. GetEasyData is the real deal.", role: "Customer" },
   { name: "Kojo M.", text: "Joined as agent and made back my ₵50 in 3 days. Wallet system is smooth.", role: "Agent" },
   { name: "Adwoa P.", text: "My students all use my mini-store for WASSCE checkers. Easiest setup ever.", role: "Sub-agent" },
 ];

@@ -21,7 +21,7 @@ import type {
 } from "./types";
 import { genApiKey, genRef } from "./format";
 
-const KEY = "bossudata.state.v1";
+const KEY = "geteasydata.state.v1";
 
 interface State {
   users: User[];
@@ -135,7 +135,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         storeSlug: storeSlug.toLowerCase().replace(/[^a-z0-9-]/g, ""),
         storeTemplate: "neon",
         storeBrand: name + "'s Data Store",
-        referralCode: "BOSS-" + name.split(" ")[0].toUpperCase(),
+        referralCode: "EASY-" + name.split(" ")[0].toUpperCase(),
         apiKey: genApiKey(),
         totalSales: 0,
         totalReferrals: 0,
@@ -154,7 +154,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         role: "subagent",
         walletBalance: 0,
         parentAgentId,
-        referralCode: "BOSS-" + name.split(" ")[0].toUpperCase(),
+        referralCode: "EASY-" + name.split(" ")[0].toUpperCase(),
         totalSales: 0,
         badges: [],
         createdAt: new Date().toISOString(),
@@ -173,8 +173,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     logout: () => {
-      const w = window as unknown as { __bossuSignOut?: () => Promise<void> };
-      if (w.__bossuSignOut) void w.__bossuSignOut();
+      const w = window as unknown as { __geteasySignOut?: () => Promise<void> };
+      if (w.__geteasySignOut) void w.__geteasySignOut();
       setState((s) => ({ ...s, currentUserId: null }));
     },
 
@@ -185,7 +185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         admin = {
           id: "u-admin",
           name: "Admin",
-          email: "admin@bossudata.com",
+          email: "admin@geteasydata.com",
           phone: "0000000000",
           role: "admin",
           walletBalance: 0,

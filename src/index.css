@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* BossuData — bold fintech: black + red + gold (LIGHT) */
+    /* GetEasyData — bold fintech: black + red + gold (LIGHT) */
     --background: 0 0% 100%;
     --foreground: 0 0% 6%;
 

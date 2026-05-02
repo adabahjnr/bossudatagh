@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "light" | "dark" | "system";
-const KEY = "bossudata.theme";
+const KEY = "geteasydata.theme";
 
 interface Ctx {
   theme: Theme;
