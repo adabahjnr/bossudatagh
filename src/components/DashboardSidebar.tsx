@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard, Wallet, ShoppingCart, Store, Users, Image as ImageIcon,
+  LayoutDashboard, Wallet, ShoppingCart, Store,
   ArrowDownToLine, Trophy, Code2, Settings, LogOut,
 } from "lucide-react";
 import {
@@ -17,8 +17,6 @@ const allItems = [
   { title: "Wallet", url: "/dashboard/wallet", icon: Wallet, roles: ["agent", "subagent"] },
   { title: "Buy products", url: "/dashboard/buy", icon: ShoppingCart, roles: ["agent", "subagent"] },
   { title: "My Store", url: "/dashboard/store", icon: Store, roles: ["agent"] },
-  { title: "Sub-agents", url: "/dashboard/subagents", icon: Users, roles: ["agent"] },
-  { title: "Flyer generator", url: "/dashboard/flyers", icon: ImageIcon, roles: ["agent", "subagent"] },
   { title: "Withdrawals", url: "/dashboard/withdrawals", icon: ArrowDownToLine, roles: ["agent", "subagent"] },
   { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Trophy, roles: ["agent", "subagent"] },
   { title: "API & Docs", url: "/dashboard/api", icon: Code2, roles: ["agent"] },

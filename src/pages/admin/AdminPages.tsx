@@ -193,52 +193,6 @@ export function AdminPackages() {
   );
 }
 
-/* ================= CHECKERS ================= */
-export function AdminCheckers() {
-  const { state, upsertChecker } = useStore();
-  const [batch, setBatch] = useState("");
-  const [target, setTarget] = useState<CheckerPackage | null>(null);
-
-  const upload = () => {
-    if (!target) return;
-    const lines = batch.split(/\s+/).filter(Boolean).length;
-    upsertChecker({ ...target, stock: target.stock + lines });
-    toast.success(`Added ${lines} PINs to ${target.type}`);
-    setBatch(""); setTarget(null);
-  };
-
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Result Checkers</h1>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {state.checkers.map((c) => (
-          <Card key={c.id} className="p-6 shadow-soft">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xl font-bold">{c.type}</div>
-                <div className="text-xs text-muted-foreground">Stock: {c.stock}</div>
-              </div>
-              <Switch checked={c.active} onCheckedChange={(v) => upsertChecker({ ...c, active: v })} />
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <div><Label>Public price</Label><Input type="number" defaultValue={c.pricePublic} onBlur={(e) => upsertChecker({ ...c, pricePublic: parseFloat(e.target.value) || 0 })} /></div>
-              <div><Label>Agent price</Label><Input type="number" defaultValue={c.priceAgent} onBlur={(e) => upsertChecker({ ...c, priceAgent: parseFloat(e.target.value) || 0 })} /></div>
-            </div>
-            <Dialog open={target?.id === c.id} onOpenChange={(o) => !o && setTarget(null)}>
-              <DialogTrigger asChild><Button className="w-full mt-4" onClick={() => setTarget(c)}>Upload PIN batch</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Upload {c.type} PINs</DialogTitle></DialogHeader>
-                <Textarea rows={8} placeholder="Paste PINs, one per line or space-separated" value={batch} onChange={(e) => setBatch(e.target.value)} />
-                <Button className="w-full" onClick={upload}>Add to inventory</Button>
-              </DialogContent>
-            </Dialog>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ================= AGENTS ================= */
 export function AdminAgents() {
   const { state, setUserActive, creditWallet } = useStore();

@@ -24,14 +24,12 @@ import Overview from "@/pages/dashboard/Overview";
 import WalletPage from "@/pages/dashboard/WalletPage";
 import BuyProducts from "@/pages/dashboard/BuyProducts";
 import MyStore from "@/pages/dashboard/MyStore";
-import Subagents from "@/pages/dashboard/Subagents";
-import FlyerGenerator from "@/pages/dashboard/FlyerGenerator";
 import Withdrawals from "@/pages/dashboard/Withdrawals";
 import Leaderboard from "@/pages/dashboard/Leaderboard";
 import ApiDocs from "@/pages/dashboard/ApiDocs";
 import AccountSettings from "@/pages/dashboard/AccountSettings";
 import {
-  AdminOverview, AdminOrders, AdminPackages, AdminCheckers, AdminAgents,
+  AdminOverview, AdminOrders, AdminPackages, AdminAgents,
   AdminWithdrawals, AdminCampaigns, AdminNotifications, AdminSettings, AdminMaintenance,
 } from "@/pages/admin/AdminPages";
 
@@ -64,8 +62,6 @@ const App = () => (
                   <Route path="wallet" element={<WalletPage />} />
                   <Route path="buy" element={<BuyProducts />} />
                   <Route path="store" element={<MyStore />} />
-                  <Route path="subagents" element={<Subagents />} />
-                  <Route path="flyers" element={<FlyerGenerator />} />
                   <Route path="withdrawals" element={<Withdrawals />} />
                   <Route path="leaderboard" element={<Leaderboard />} />
                   <Route path="api" element={<ApiDocs />} />
@@ -75,7 +71,6 @@ const App = () => (
                   <Route index element={<AdminOverview />} />
                   <Route path="orders" element={<AdminOrders />} />
                   <Route path="packages" element={<AdminPackages />} />
-                  <Route path="checkers" element={<AdminCheckers />} />
                   <Route path="agents" element={<AdminAgents />} />
                   <Route path="withdrawals" element={<AdminWithdrawals />} />
                   <Route path="campaigns" element={<AdminCampaigns />} />

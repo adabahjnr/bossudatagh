@@ -31,17 +31,6 @@ export default function BuyProducts() {
     setRecipient("");
   };
 
-  const buyChecker = (id: string) => {
-    if (!currentUser) return;
-    const c = state.checkers.find((x) => x.id === id);
-    if (!c) return;
-    if (!/^0\d{9}$/.test(recipient)) { toast.error("Enter a valid recipient phone"); return; }
-    if (!deductWallet(currentUser.id, c.priceAgent)) { toast.error("Insufficient wallet balance. Top up first."); return; }
-    placeOrder({ productLabel: `${c.type} Checker`, recipient, amount: c.priceAgent, buyerType: "agent", agentId: currentUser.id });
-    toast.success(`Checker delivered to ${recipient}`);
-    setRecipient("");
-  };
-
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
@@ -56,7 +45,7 @@ export default function BuyProducts() {
       </Card>
 
       <Tabs defaultValue="data">
-        <TabsList><TabsTrigger value="data">Data</TabsTrigger><TabsTrigger value="checkers">Checkers</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="data">Data</TabsTrigger></TabsList>
         <TabsContent value="data">
           <div className="flex gap-2 mb-4 flex-wrap">
             {NETS.map((n) => (
@@ -78,20 +67,6 @@ export default function BuyProducts() {
                 <div className="mt-4 flex items-end justify-between">
                   <div className="text-xl font-bold text-gradient-primary">{cedi(p.priceAgent)}</div>
                   <Button size="sm" onClick={() => buyData(p.id)}>Buy</Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-        <TabsContent value="checkers">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {state.checkers.filter((c) => c.active).map((c) => (
-              <Card key={c.id} className="p-5 shadow-soft">
-                <div className="text-2xl font-bold">{c.type} Checker</div>
-                <div className="text-xs text-muted-foreground">Stock: {c.stock}</div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div className="text-xl font-bold text-gradient-primary">{cedi(c.priceAgent)}</div>
-                  <Button size="sm" onClick={() => buyChecker(c.id)}>Buy</Button>
                 </div>
               </Card>
             ))}
