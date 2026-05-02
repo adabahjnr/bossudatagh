@@ -44,7 +44,7 @@ export function AuthStoreBridge() {
       return { ...s, users: [...others, mirrored], currentUserId: user.id };
     });
     // expose signOut on window so legacy logout() calls fully sign out of Supabase too
-    (window as unknown as { __bossuSignOut?: () => Promise<void> }).__bossuSignOut = signOut;
+    (window as unknown as { __geteasySignOut?: () => Promise<void> }).__geteasySignOut = signOut;
   }, [user, profile, roles, setState, signOut, state.currentUserId]);
 
   return null;

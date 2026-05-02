@@ -35,7 +35,7 @@ export function PublicFooter() {
         </div>
       </div>
       <div className="border-t border-border py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} BossuData. All rights reserved.
+        © {new Date().getFullYear()} GetEasyData. All rights reserved.
       </div>
     </footer>
   );

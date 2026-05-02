@@ -46,7 +46,7 @@ export default function FlyerGenerator() {
     ctx.fillText("Order on WhatsApp", format.w * 0.11, ctaY + format.w / 17);
     // footer
     ctx.fillStyle = "#fff"; ctx.font = `${Math.floor(format.w / 38)}px sans-serif`;
-    ctx.fillText("Powered by BossuData", format.w * 0.08, format.h - format.w / 18);
+    ctx.fillText("Powered by GetEasyData", format.w * 0.08, format.h - format.w / 18);
   };
 
   const wrapText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
@@ -67,7 +67,7 @@ export default function FlyerGenerator() {
     const canvas = canvasRef.current; if (!canvas) return;
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
-    a.download = `bossudata-flyer-${format.id}.png`;
+    a.download = `geteasydata-flyer-${format.id}.png`;
     a.click();
   };
 

@@ -119,18 +119,18 @@ export const mockCampaigns: FreeDataCampaign[] = [
 ];
 
 export const defaultSiteSettings: SiteSettings = {
-  siteName: "BossuData",
+  siteName: "GetEasyData",
   whatsappNumber: "233244000000",
   agentFee: 50,
   minWithdrawal: 50,
   maintenanceMode: false,
-  maintenanceMessage: "We're upgrading BossuData. Be right back!",
+  maintenanceMessage: "We're upgrading GetEasyData. Be right back!",
 };
 
 export const mockNotifications: Notification[] = [
   {
     id: "n1",
-    title: "Welcome to BossuData",
+    title: "Welcome to GetEasyData",
     message: "New rewards system live this week. Top sellers earn bonus credits!",
     type: "info",
     audience: "agents",

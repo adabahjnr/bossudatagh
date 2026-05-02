@@ -8,7 +8,7 @@ import { PurchaseDialog } from "@/components/PurchaseDialog";
 import { MessageCircle, Zap, Rocket } from "lucide-react";
 import type { CheckerPackage, DataPackage, Network } from "@/lib/types";
 
-const POPUP_KEY = "bossudata.store.popup.seen";
+const POPUP_KEY = "geteasydata.store.popup.seen";
 
 export default function MiniStore() {
   const { slug } = useParams();
@@ -36,7 +36,7 @@ export default function MiniStore() {
         <div>
           <h1 className="text-2xl font-bold">Store not found</h1>
           <p className="text-muted-foreground mt-2">This store doesn't exist or is no longer active.</p>
-          <Button asChild className="mt-4"><Link to="/">Back to BossuData</Link></Button>
+          <Button asChild className="mt-4"><Link to="/">Back to GetEasyData</Link></Button>
         </div>
       </div>
     );
@@ -141,7 +141,7 @@ export default function MiniStore() {
       <Dialog open={popup} onOpenChange={(o) => !o && dismiss()}>
         <DialogContent className="text-center">
           <DialogHeader>
-            <DialogTitle className="text-2xl">🚀 Get your own BossuData store</DialogTitle>
+            <DialogTitle className="text-2xl">🚀 Get your own GetEasyData store</DialogTitle>
           </DialogHeader>
           <p className="text-muted-foreground">Sell data & checkers, build your brand, and earn daily — for just ₵50.</p>
           <Button asChild size="lg" className="mt-2 bg-gradient-primary"><Link to="/become-agent" onClick={dismiss}><Rocket className="h-4 w-4 mr-1" /> Become an Agent</Link></Button>
