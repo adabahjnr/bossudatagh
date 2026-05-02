@@ -9,7 +9,7 @@ export function Logo({ className = "" }: { className?: string }) {
         <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
       </span>
       <span className="tracking-tight">
-        Bossu<span className="text-gradient-gold">Data</span>
+        GetEasy<span className="text-gradient-gold">Data</span>
       </span>
     </Link>
   );
