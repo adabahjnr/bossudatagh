@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { StoreProvider } from "@/lib/store";
 import { AuthProvider } from "@/hooks/useAuth";
 import { AuthStoreBridge } from "@/components/AuthStoreBridge";
+import { SupabaseDataBridge } from "@/components/SupabaseDataBridge";
 import { MaintenanceGate } from "@/components/MaintenanceGate";
 import PublicLayout from "@/layouts/PublicLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
@@ -42,6 +43,7 @@ const App = () => (
       <AuthProvider>
         <StoreProvider>
           <AuthStoreBridge />
+          <SupabaseDataBridge />
           <TooltipProvider>
             <Toaster />
             <Sonner position="top-right" richColors />
