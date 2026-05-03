@@ -1,25 +1,8 @@
-import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/lib/store";
-import { useAuth } from "@/hooks/useAuth";
-import type {
-  CheckerPackage,
-  DataPackage,
-  FreeDataCampaign,
-  Network,
-  Notification,
-  Order,
-  SiteSettings,
-  User,
-  WithdrawalRequest,
-} from "@/lib/types";
+// Supabase disconnected — this bridge is disabled. App runs on local store only.
 
-/**
- * Hydrates the legacy localStorage-backed store from Supabase and keeps it
- * in sync via realtime subscriptions. Lets every existing dashboard/admin
- * page work against real DB data without rewriting each file.
- */
 export function SupabaseDataBridge() {
+  return null;
+}
   const { setState } = useStore();
   const { user, isAdmin } = useAuth();
 

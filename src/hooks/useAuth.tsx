@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { createContext, useContext, type ReactNode } from "react";
+import { useStore } from "@/lib/store";
+import type { User } from "@/lib/types";
 
 export type AppRole = "admin" | "agent" | "subagent";
 
@@ -23,7 +23,7 @@ export interface Profile {
 }
 
 interface AuthCtx {
-  session: Session | null;
+  session: null;
   user: User | null;
   profile: Profile | null;
   roles: AppRole[];
@@ -44,85 +44,75 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+function userToProfile(u: User): Profile {
+  return {
+    id: u.id,
+    name: u.name,
+    phone: u.phone,
+    store_slug: u.storeSlug ?? null,
+    store_template: (u.storeTemplate as Profile["store_template"]) ?? null,
+    store_logo: u.storeLogo ?? null,
+    store_brand: u.storeBrand ?? null,
+    parent_agent_id: u.parentAgentId ?? null,
+    api_key: u.apiKey ?? null,
+    referral_code: u.referralCode ?? null,
+    wallet_balance: u.walletBalance,
+    total_sales: u.totalSales ?? 0,
+    total_referrals: u.totalReferrals ?? 0,
+    badges: u.badges ?? [],
+    active: u.active,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { state, currentUser, signupAgent, login, logout } = useStore();
 
-  const loadUserData = async (uid: string) => {
-    const [{ data: prof }, { data: roleRows }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", uid),
-    ]);
-    setProfile((prof as Profile) ?? null);
-    setRoles(((roleRows ?? []) as { role: AppRole }[]).map((r) => r.role));
+  const roles: AppRole[] = currentUser
+    ? currentUser.role === "admin"
+      ? ["admin"]
+      : currentUser.role === "subagent"
+        ? ["subagent"]
+        : ["agent"]
+    : [];
+
+  const signUp: AuthCtx["signUp"] = async ({ email, name, phone, storeSlug }) => {
+    try {
+      const existing = state.users.find(
+        (u) => u.email.toLowerCase() === email.toLowerCase() || u.phone === phone,
+      );
+      if (existing) return { error: "An account with that email or phone already exists." };
+      signupAgent({ name, email, phone, password: "", storeSlug: storeSlug ?? name.toLowerCase().replace(/\s+/g, "-") });
+      return { error: null };
+    } catch (e: any) {
+      return { error: e?.message ?? "Sign up failed" };
+    }
   };
 
-  useEffect(() => {
-    // Set up listener FIRST, then check session.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) {
-        // Defer DB calls so the listener stays sync.
-        setTimeout(() => loadUserData(sess.user.id), 0);
-      } else {
-        setProfile(null);
-        setRoles([]);
-      }
-    });
-    supabase.auth.getSession().then(({ data: { session: sess } }) => {
-      setSession(sess);
-      setUser(sess?.user ?? null);
-      if (sess?.user) loadUserData(sess.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const signUp: AuthCtx["signUp"] = async ({ email, password, name, phone, storeSlug }) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { name, phone, store_slug: storeSlug },
-      },
-    });
-    return { error: error?.message ?? null };
+  const signIn: AuthCtx["signIn"] = async (email, _password) => {
+    const u = login(email);
+    if (!u) return { error: "No account found with that email or phone." };
+    return { error: null };
   };
 
-  const signIn: AuthCtx["signIn"] = async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+  const signOut: AuthCtx["signOut"] = async () => {
+    logout();
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const resetPassword: AuthCtx["resetPassword"] = async (_email) => {
+    return { error: null };
   };
 
-  const resetPassword: AuthCtx["resetPassword"] = async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    return { error: error?.message ?? null };
-  };
-
-  const refreshProfile = async () => {
-    if (user) await loadUserData(user.id);
-  };
+  const refreshProfile: AuthCtx["refreshProfile"] = async () => {};
 
   return (
     <Ctx.Provider
       value={{
-        session,
-        user,
-        profile,
+        session: null,
+        user: currentUser,
+        profile: currentUser ? userToProfile(currentUser) : null,
         roles,
-        isAdmin: roles.includes("admin"),
-        loading,
+        isAdmin: currentUser?.role === "admin",
+        loading: false,
         signUp,
         signIn,
         signOut,

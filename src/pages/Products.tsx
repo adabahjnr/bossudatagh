@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cedi } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import type { DataPackage, Network } from "@/lib/types";
-import { Smartphone, Loader2 } from "lucide-react";
+import { Smartphone } from "lucide-react";
 
 const NETWORKS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
 const NETWORK_COLORS: Record<Network, string> = {
@@ -24,37 +24,14 @@ const NETWORK_CARD: Record<Network, string> = {
 };
 
 export default function Products() {
-  const [allPackages, setAllPackages] = useState<DataPackage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { state } = useStore();
   const [params, setParams] = useSearchParams();
   const network = (params.get("network") as Network | null) ?? "MTN";
 
   const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      supabase.from("data_packages").select("*").eq("active", true).order("price_public"),
-    ]).then(([pkgRes]) => {
-      if (cancelled) return;
-      const pkgs: DataPackage[] = (pkgRes.data ?? []).map((r: any) => ({
-        id: r.id,
-        network: r.network,
-        size: r.size,
-        validity: r.validity,
-        pricePublic: Number(r.price_public),
-        priceAgent: Number(r.price_agent),
-        active: r.active,
-      }));
-      setAllPackages(pkgs);
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
   const packages = useMemo(
-    () => allPackages.filter((p) => p.network === network),
-    [allPackages, network],
+    () => state.packages.filter((p) => p.network === network && p.active),
+    [state.packages, network],
   );
 
   return (
@@ -84,11 +61,6 @@ export default function Products() {
             ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {loading && (
-              <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading packages…
-              </div>
-            )}
             {packages.map((p) => (
               <Card key={p.id} className={`p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 ${NETWORK_CARD[p.network]}`}>
                 <div className="flex items-center justify-between mb-4">
