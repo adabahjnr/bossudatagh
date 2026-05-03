@@ -1,4 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 
@@ -44,6 +45,14 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+const authClient =
+  SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+    : null;
+
 function userToProfile(u: User): Profile {
   return {
     id: u.id,
@@ -75,31 +84,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : ["agent"]
     : [];
 
-  const signUp: AuthCtx["signUp"] = async ({ email, name, phone, storeSlug }) => {
+  const signUp: AuthCtx["signUp"] = async ({ email, password, name, phone, storeSlug }) => {
     try {
+      if (!authClient) {
+        return { error: "Supabase Auth is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY." };
+      }
+
       const existing = state.users.find(
         (u) => u.email.toLowerCase() === email.toLowerCase() || u.phone === phone,
       );
       if (existing) return { error: "An account with that email or phone already exists." };
-      signupAgent({ name, email, phone, password: "", storeSlug: storeSlug ?? name.toLowerCase().replace(/\s+/g, "-") });
+
+      const slug = storeSlug ?? name.toLowerCase().replace(/\s+/g, "-");
+      const { error } = await authClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: {
+            name,
+            phone,
+            store_slug: slug,
+          },
+        },
+      });
+      if (error) return { error: error.message };
+
+      signupAgent({ name, email, phone, password, storeSlug: slug });
       return { error: null };
     } catch (e: any) {
       return { error: e?.message ?? "Sign up failed" };
     }
   };
 
-  const signIn: AuthCtx["signIn"] = async (email, _password) => {
+  const signIn: AuthCtx["signIn"] = async (email, password) => {
+    if (authClient) {
+      const { error } = await authClient.auth.signInWithPassword({ email, password });
+      if (error) return { error: error.message };
+    }
+
     const u = login(email);
     if (!u) return { error: "No account found with that email or phone." };
     return { error: null };
   };
 
   const signOut: AuthCtx["signOut"] = async () => {
+    if (authClient) {
+      await authClient.auth.signOut();
+    }
     logout();
   };
 
-  const resetPassword: AuthCtx["resetPassword"] = async (_email) => {
-    return { error: null };
+  const resetPassword: AuthCtx["resetPassword"] = async (email) => {
+    if (!authClient) {
+      return { error: "Supabase Auth is not configured." };
+    }
+    const { error } = await authClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return { error: error?.message ?? null };
   };
 
   const refreshProfile: AuthCtx["refreshProfile"] = async () => {};
