@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_store_packages: {
+        Row: {
+          active: boolean
+          agent_id: string
+          created_at: string
+          id: string
+          package_id: string
+          sale_price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agent_id: string
+          created_at?: string
+          id?: string
+          package_id: string
+          sale_price: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agent_id?: string
+          created_at?: string
+          id?: string
+          package_id?: string
+          sale_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_store_packages_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "data_packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_codes: {
         Row: {
           campaign_id: string
@@ -492,6 +530,15 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      record_agent_sale: {
+        Args: {
+          _agent_id: string
+          _order_ref: string
+          _package_id: string
+          _sale_price: number
+        }
+        Returns: Json
+      }
       redeem_code: { Args: { _code: string; _phone: string }; Returns: Json }
     }
     Enums: {

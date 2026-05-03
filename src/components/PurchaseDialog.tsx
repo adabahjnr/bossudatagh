@@ -83,6 +83,20 @@ export function PurchaseDialog({
     setTimeout(() => {
       supabase.from("orders").update({ status: "delivered" }).eq("id", data.id).then(() => {});
     }, 1800);
+    // Credit agent profit immediately for store sales of data packages
+    if (item.agentId && item.kind === "data") {
+      supabase.rpc("record_agent_sale", {
+        _agent_id: item.agentId,
+        _package_id: item.pkg.id,
+        _sale_price: price,
+        _order_ref: data.ref,
+      }).then(({ data: res }) => {
+        const r = res as { ok?: boolean; profit?: number } | null;
+        if (r?.ok && r.profit && r.profit > 0) {
+          toast.success(`Agent earned ₵${r.profit.toFixed(2)} profit`);
+        }
+      });
+    }
   };
 
   const copy = () => {
