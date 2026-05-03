@@ -33,7 +33,9 @@ export default function Products() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from("data_packages").select("*").eq("active", true).order("price_public").then((pkgRes) => {
+    Promise.all([
+      supabase.from("data_packages").select("*").eq("active", true).order("price_public"),
+    ]).then(([pkgRes]) => {
       if (cancelled) return;
       const pkgs: DataPackage[] = (pkgRes.data ?? []).map((r: any) => ({
         id: r.id,
@@ -62,7 +64,7 @@ export default function Products() {
         <p className="mt-2 text-muted-foreground">No signup required. Pay and receive in seconds.</p>
       </div>
 
-      <Tabs value="data">
+      <Tabs value="data" onValueChange={(v) => setParams({ tab: v, network })}>
         <TabsList className="mx-auto mb-8 flex w-fit">
           <TabsTrigger value="data"><Smartphone className="h-4 w-4 mr-2" /> Data Bundles</TabsTrigger>
         </TabsList>
