@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store";
 import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ export function PurchaseDialog({
   onOpenChange: (o: boolean) => void;
   pricing?: "public" | "agent";
 }) {
+  const { creditWallet, setState } = useStore();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"form" | "success">("form");
@@ -85,6 +87,19 @@ export function PurchaseDialog({
     }, 1800);
     // Credit agent profit immediately for store sales of data packages
     if (item.agentId && item.kind === "data") {
+      const profit = Math.max(price - item.pkg.priceAgent, 0);
+      if (profit > 0) {
+        creditWallet(item.agentId, profit);
+        setState((s) => ({
+          ...s,
+          users: s.users.map((u) =>
+            u.id === item.agentId
+              ? { ...u, totalSales: (u.totalSales ?? 0) + 1 }
+              : u,
+          ),
+        }));
+      }
+
       supabase.rpc("record_agent_sale", {
         _agent_id: item.agentId,
         _package_id: item.pkg.id,
@@ -94,6 +109,8 @@ export function PurchaseDialog({
         const r = res as { ok?: boolean; profit?: number } | null;
         if (r?.ok && r.profit && r.profit > 0) {
           toast.success(`Agent earned ₵${r.profit.toFixed(2)} profit`);
+        } else if (profit > 0) {
+          toast.success(`Agent earned ${cedi(profit)} profit`);
         }
       });
     }

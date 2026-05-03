@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/lib/store";
 import { cedi } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -14,41 +13,22 @@ export default function MiniStore() {
   const agent = state.users.find((u) => u.storeSlug === slug && u.role === "agent");
   const [net, setNet] = useState<Network>("MTN");
   const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage; agentId: string } | { kind: "checker"; pkg: CheckerPackage; agentId: string } | null>(null);
-  const [storePkgs, setStorePkgs] = useState<DataPackage[]>([]);
 
-  useEffect(() => {
-    if (!agent) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("agent_store_packages")
-        .select("id, sale_price, package_id, data_packages(*)")
-        .eq("agent_id", agent.id)
-        .eq("active", true);
-      if (cancelled || !data) return;
-      const rows: DataPackage[] = data
-        .filter((r) => r.data_packages && (r.data_packages as { active: boolean }).active)
-        .map((r) => {
-          const p = r.data_packages as {
-            id: string; network: Network; size: string; validity: string;
-            price_public: number; price_agent: number; active: boolean;
-          };
-          return {
-            id: p.id,
-            network: p.network,
-            size: p.size,
-            validity: p.validity,
-            pricePublic: Number(r.sale_price),
-            priceAgent: Number(p.price_agent),
-            active: true,
-          };
-        });
-      setStorePkgs(rows);
-    })();
-    return () => { cancelled = true; };
-  }, [agent]);
-
-  const packages = useMemo(() => storePkgs.filter((p) => p.network === net), [storePkgs, net]);
+  const packages = useMemo(() => {
+    if (!agent) return [];
+    return state.agentStorePackages
+      .filter((r) => r.agentId === agent.id && r.active)
+      .map((r) => {
+        const pkg = state.packages.find((p) => p.id === r.packageId && p.active);
+        if (!pkg) return null;
+        return {
+          ...pkg,
+          pricePublic: r.salePrice,
+        } as DataPackage;
+      })
+      .filter((p): p is DataPackage => Boolean(p))
+      .filter((p) => p.network === net);
+  }, [agent, net, state.agentStorePackages, state.packages]);
   const checkers = state.checkers.filter((c) => c.active);
   const wa = state.settings.whatsappNumber;
 

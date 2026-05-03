@@ -10,6 +10,7 @@ import {
   mockWithdrawals,
 } from "./mockData";
 import type {
+  AgentStorePackage,
   CheckerPackage,
   DataPackage,
   FreeDataCampaign,
@@ -26,6 +27,7 @@ const KEY = "geteasydata.state.v1";
 interface State {
   users: User[];
   packages: DataPackage[];
+  agentStorePackages: AgentStorePackage[];
   checkers: CheckerPackage[];
   orders: Order[];
   withdrawals: WithdrawalRequest[];
@@ -39,6 +41,7 @@ interface State {
 const initialState: State = {
   users: mockAgents,
   packages: mockPackages,
+  agentStorePackages: [],
   checkers: mockCheckers,
   orders: mockOrders,
   withdrawals: mockWithdrawals,
@@ -86,6 +89,10 @@ interface StoreCtx {
   deletePackage: (id: string) => void;
   upsertChecker: (c: CheckerPackage) => void;
   setUserActive: (id: string, active: boolean) => void;
+  // Agent store packages
+  upsertAgentStorePackage: (row: { agentId: string; packageId: string; salePrice: number; active: boolean }) => void;
+  removeAgentStorePackage: (agentId: string, packageId: string) => void;
+  setAgentStorePackageActive: (agentId: string, packageId: string, active: boolean) => void;
   // Campaigns
   createCampaign: (input: { name: string; dataSize: string; network: FreeDataCampaign["network"]; totalCodes: number }) => FreeDataCampaign;
   setCampaignActive: (id: string, active: boolean) => void;
@@ -386,6 +393,88 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setUserActive: (id, active) => {
       setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, active } : u)) }));
       void supabase.from("profiles").update({ active }).eq("id", id);
+    },
+
+    upsertAgentStorePackage: ({ agentId, packageId, salePrice, active }) => {
+      const now = new Date().toISOString();
+      const existing = state.agentStorePackages.find((x) => x.agentId === agentId && x.packageId === packageId);
+      const localId = existing?.id ?? ("asp-" + Math.random().toString(36).slice(2, 9));
+
+      setState((s) => {
+        const rows = s.agentStorePackages.some((x) => x.agentId === agentId && x.packageId === packageId)
+          ? s.agentStorePackages.map((x) =>
+              x.agentId === agentId && x.packageId === packageId
+                ? { ...x, salePrice, active, updatedAt: now }
+                : x,
+            )
+          : [
+              {
+                id: localId,
+                agentId,
+                packageId,
+                salePrice,
+                active,
+                createdAt: now,
+                updatedAt: now,
+              },
+              ...s.agentStorePackages,
+            ];
+        return { ...s, agentStorePackages: rows };
+      });
+
+      void (async () => {
+        const { data: found } = await supabase
+          .from("agent_store_packages")
+          .select("id")
+          .eq("agent_id", agentId)
+          .eq("package_id", packageId)
+          .maybeSingle();
+
+        if (found?.id) {
+          await supabase
+            .from("agent_store_packages")
+            .update({ sale_price: salePrice, active })
+            .eq("id", found.id);
+        } else {
+          await supabase.from("agent_store_packages").insert({
+            agent_id: agentId,
+            package_id: packageId,
+            sale_price: salePrice,
+            active,
+          });
+        }
+      })();
+    },
+
+    removeAgentStorePackage: (agentId, packageId) => {
+      setState((s) => ({
+        ...s,
+        agentStorePackages: s.agentStorePackages.filter(
+          (x) => !(x.agentId === agentId && x.packageId === packageId),
+        ),
+      }));
+
+      void supabase
+        .from("agent_store_packages")
+        .delete()
+        .eq("agent_id", agentId)
+        .eq("package_id", packageId);
+    },
+
+    setAgentStorePackageActive: (agentId, packageId, active) => {
+      const now = new Date().toISOString();
+      setState((s) => ({
+        ...s,
+        agentStorePackages: s.agentStorePackages.map((x) =>
+          x.agentId === agentId && x.packageId === packageId ? { ...x, active, updatedAt: now } : x,
+        ),
+      }));
+
+      void supabase
+        .from("agent_store_packages")
+        .update({ active })
+        .eq("agent_id", agentId)
+        .eq("package_id", packageId);
     },
 
     createCampaign: ({ name, dataSize, network, totalCodes }) => {

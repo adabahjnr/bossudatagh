@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Wallet, ShoppingCart, Store,
-  ArrowDownToLine, Trophy, Code2, Settings, LogOut,
+  ArrowDownToLine, Trophy, Code2, Settings, LogOut, Package,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -17,6 +17,7 @@ const allItems = [
   { title: "Wallet", url: "/dashboard/wallet", icon: Wallet, roles: ["agent", "subagent"] },
   { title: "Buy products", url: "/dashboard/buy", icon: ShoppingCart, roles: ["agent", "subagent"] },
   { title: "My Store", url: "/dashboard/store", icon: Store, roles: ["agent"] },
+  { title: "Store Packages", url: "/dashboard/store/packages", icon: Package, roles: ["agent"] },
   { title: "Withdrawals", url: "/dashboard/withdrawals", icon: ArrowDownToLine, roles: ["agent", "subagent"] },
   { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Trophy, roles: ["agent", "subagent"] },
   { title: "API & Docs", url: "/dashboard/api", icon: Code2, roles: ["agent"] },

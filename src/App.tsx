@@ -24,6 +24,7 @@ import Overview from "@/pages/dashboard/Overview";
 import WalletPage from "@/pages/dashboard/WalletPage";
 import BuyProducts from "@/pages/dashboard/BuyProducts";
 import MyStore from "@/pages/dashboard/MyStore";
+import StorePackages from "@/pages/dashboard/StorePackages";
 import Withdrawals from "@/pages/dashboard/Withdrawals";
 import Leaderboard from "@/pages/dashboard/Leaderboard";
 import ApiDocs from "@/pages/dashboard/ApiDocs";
@@ -62,6 +63,7 @@ const App = () => (
                   <Route path="wallet" element={<WalletPage />} />
                   <Route path="buy" element={<BuyProducts />} />
                   <Route path="store" element={<MyStore />} />
+                  <Route path="store/packages" element={<StorePackages />} />
                   <Route path="withdrawals" element={<Withdrawals />} />
                   <Route path="leaderboard" element={<Leaderboard />} />
                   <Route path="api" element={<ApiDocs />} />

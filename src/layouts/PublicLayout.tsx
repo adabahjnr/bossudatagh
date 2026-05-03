@@ -3,6 +3,7 @@ import { PublicHeader } from "@/components/PublicHeader";
 import { PublicFooter } from "@/components/PublicFooter";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { RedemptionFloating } from "@/components/RedemptionFloating";
+import { BecomeAgentPopup } from "@/components/BecomeAgentPopup";
 
 export default function PublicLayout() {
   return (
@@ -14,6 +15,7 @@ export default function PublicLayout() {
       <PublicFooter />
       <WhatsAppButton />
       <RedemptionFloating />
+      <BecomeAgentPopup />
     </div>
   );
 }

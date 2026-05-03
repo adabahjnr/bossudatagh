@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { Copy, ExternalLink, Share2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 const templates = [
   { id: "neon", name: "Neon", desc: "Vibrant gradients, bold cards" },
@@ -34,6 +35,9 @@ export default function MyStore() {
       <div>
         <h1 className="text-2xl font-bold">My Store</h1>
         <p className="text-muted-foreground">Customize your branded mini-store. Each store looks unique.</p>
+        <Button asChild variant="outline" size="sm" className="mt-3">
+          <Link to="/dashboard/store/packages">Manage store packages</Link>
+        </Button>
       </div>
 
       <Card className="p-6 shadow-soft">

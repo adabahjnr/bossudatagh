@@ -22,6 +22,16 @@ export interface CheckerPackage {
   active: boolean;
 }
 
+export interface AgentStorePackage {
+  id: string;
+  agentId: string;
+  packageId: string;
+  salePrice: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
   ref: string;
