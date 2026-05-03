@@ -1,32 +1,54 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/lib/store";
 import { cedi } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
-import { MessageCircle, Zap, Rocket } from "lucide-react";
+import { MessageCircle, Zap } from "lucide-react";
 import type { CheckerPackage, DataPackage, Network } from "@/lib/types";
-
-const POPUP_KEY = "geteasydata.store.popup.seen";
 
 export default function MiniStore() {
   const { slug } = useParams();
   const { state } = useStore();
   const agent = state.users.find((u) => u.storeSlug === slug && u.role === "agent");
-  const [popup, setPopup] = useState(false);
   const [net, setNet] = useState<Network>("MTN");
   const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage; agentId: string } | { kind: "checker"; pkg: CheckerPackage; agentId: string } | null>(null);
+  const [storePkgs, setStorePkgs] = useState<DataPackage[]>([]);
 
   useEffect(() => {
-    if (!localStorage.getItem(POPUP_KEY)) {
-      const t = setTimeout(() => setPopup(true), 1200);
-      return () => clearTimeout(t);
-    }
-  }, []);
-  const dismiss = () => { localStorage.setItem(POPUP_KEY, "1"); setPopup(false); };
+    if (!agent) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("agent_store_packages")
+        .select("id, sale_price, package_id, data_packages(*)")
+        .eq("agent_id", agent.id)
+        .eq("active", true);
+      if (cancelled || !data) return;
+      const rows: DataPackage[] = data
+        .filter((r) => r.data_packages && (r.data_packages as { active: boolean }).active)
+        .map((r) => {
+          const p = r.data_packages as {
+            id: string; network: Network; size: string; validity: string;
+            price_public: number; price_agent: number; active: boolean;
+          };
+          return {
+            id: p.id,
+            network: p.network,
+            size: p.size,
+            validity: p.validity,
+            pricePublic: Number(r.sale_price),
+            priceAgent: Number(p.price_agent),
+            active: true,
+          };
+        });
+      setStorePkgs(rows);
+    })();
+    return () => { cancelled = true; };
+  }, [agent]);
 
-  const packages = useMemo(() => state.packages.filter((p) => p.active && p.network === net), [state.packages, net]);
+  const packages = useMemo(() => storePkgs.filter((p) => p.network === net), [storePkgs, net]);
   const checkers = state.checkers.filter((c) => c.active);
   const wa = state.settings.whatsappNumber;
 
@@ -137,17 +159,6 @@ export default function MiniStore() {
          className="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-green-500 text-white shadow-2xl hover:scale-110 transition-transform">
         <MessageCircle className="h-6 w-6" />
       </a>
-
-      <Dialog open={popup} onOpenChange={(o) => !o && dismiss()}>
-        <DialogContent className="text-center">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">🚀 Get your own GetEasyData store</DialogTitle>
-          </DialogHeader>
-          <p className="text-muted-foreground">Sell data & checkers, build your brand, and earn daily — for just ₵50.</p>
-          <Button asChild size="lg" className="mt-2 bg-gradient-primary"><Link to="/become-agent" onClick={dismiss}><Rocket className="h-4 w-4 mr-1" /> Become an Agent</Link></Button>
-          <button onClick={dismiss} className="text-xs text-muted-foreground hover:underline">No thanks, just shopping</button>
-        </DialogContent>
-      </Dialog>
 
       <PurchaseDialog item={purchase} open={!!purchase} onOpenChange={(o) => !o && setPurchase(null)} pricing="public" />
     </div>
