@@ -39,8 +39,8 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
-      <AuthProvider>
-        <StoreProvider>
+      <StoreProvider>
+        <AuthProvider>
           <AuthStoreBridge />
           <SupabaseDataBridge />
           <TooltipProvider>
@@ -85,8 +85,8 @@ const App = () => (
               </MaintenanceGate>
             </BrowserRouter>
           </TooltipProvider>
-        </StoreProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </StoreProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
