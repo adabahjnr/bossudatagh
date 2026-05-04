@@ -34,7 +34,6 @@ export default function BecomeAgent() {
       toast.error("Please fill in all fields"); return;
     }
     if (!/^0\d{9}$/.test(form.phone)) { toast.error("Invalid phone number"); return; }
-    if (form.password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     // Check slug availability
     const { data: taken } = await supabase
       .from("profiles")

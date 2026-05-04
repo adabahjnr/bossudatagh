@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Logo } from "./Logo";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -28,12 +29,16 @@ export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { pathname } = useLocation();
-  const { currentUser, logout } = useStore();
+  const { currentUser } = useStore();
+  const { signOut } = useAuth();
   const nav = useNavigate();
 
   const items = allItems.filter((i) => currentUser && i.roles.includes(currentUser.role));
 
-  const onLogout = () => { logout(); nav("/"); };
+  const onLogout = async () => {
+    await signOut();
+    nav("/login", { replace: true });
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -51,10 +56,20 @@ export function DashboardSidebar() {
             <SidebarMenu>
               {items.map((i) => (
                 <SidebarMenuItem key={i.url}>
-                  <SidebarMenuButton asChild isActive={pathname === i.url}>
-                    <NavLink to={i.url} end className="flex items-center gap-2">
+                  <SidebarMenuButton asChild isActive={pathname === i.url} className="p-0 h-auto">
+                    <NavLink
+                      to={i.url}
+                      end
+                      className={({ isActive }) =>
+                        `w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-smooth ${
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`
+                      }
+                    >
                       <i.icon className="h-4 w-4" />
-                      {!collapsed && <span>{i.title}</span>}
+                      {!collapsed && <span className="font-semibold">{i.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -63,7 +78,7 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <div className="px-2 mt-auto pb-4">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={onLogout}>
+          <Button variant="ghost" size="sm" className="w-full justify-start font-semibold" onClick={onLogout}>
             <LogOut className="h-4 w-4 mr-2" /> {!collapsed && "Sign out"}
           </Button>
         </div>
