@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { toast } from "sonner";
 import type { Network } from "@/lib/types";
 
@@ -15,7 +15,14 @@ export default function BuyProducts() {
   const [net, setNet] = useState<Network>("MTN");
   const [recipient, setRecipient] = useState("");
 
-  const packages = useMemo(() => state.packages.filter((p) => p.active && p.network === net), [state.packages, net]);
+  const packages = useMemo(
+    () =>
+      state.packages
+        .filter((p) => p.active && p.network === net)
+        .slice()
+        .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size)),
+    [state.packages, net],
+  );
 
   const buyData = (id: string) => {
     if (!currentUser) return;
