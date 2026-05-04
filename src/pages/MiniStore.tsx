@@ -27,7 +27,8 @@ export default function MiniStore() {
         } as DataPackage;
       })
       .filter((p): p is DataPackage => Boolean(p))
-      .filter((p) => p.network === net);
+      .filter((p) => p.network === net)
+      .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size));
   }, [agent, net, state.agentStorePackages, state.packages]);
   const checkers = state.checkers.filter((c) => c.active);
   const wa = state.settings.whatsappNumber;
