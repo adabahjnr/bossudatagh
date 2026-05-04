@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import type { DataPackage, Network } from "@/lib/types";
 import { Smartphone } from "lucide-react";
