@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useStore } from "@/lib/store";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import { MessageCircle, Zap } from "lucide-react";
@@ -27,7 +27,8 @@ export default function MiniStore() {
         } as DataPackage;
       })
       .filter((p): p is DataPackage => Boolean(p))
-      .filter((p) => p.network === net);
+      .filter((p) => p.network === net)
+      .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size));
   }, [agent, net, state.agentStorePackages, state.packages]);
   const checkers = state.checkers.filter((c) => c.active);
   const wa = state.settings.whatsappNumber;

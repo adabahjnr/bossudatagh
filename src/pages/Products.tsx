@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import type { DataPackage, Network } from "@/lib/types";
 import { Smartphone } from "lucide-react";
@@ -30,7 +30,11 @@ export default function Products() {
 
   const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | null>(null);
   const packages = useMemo(
-    () => state.packages.filter((p) => p.network === network && p.active),
+    () =>
+      state.packages
+        .filter((p) => p.network === network && p.active)
+        .slice()
+        .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size)),
     [state.packages, network],
   );
 

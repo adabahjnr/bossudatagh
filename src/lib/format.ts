@@ -22,3 +22,14 @@ export const genCode = (len = 8) => {
 
 export const genApiKey = () =>
   "bd_live_" + Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+
+// Convert a size label like "500MB", "1GB", "1.5 GB" to MB for sorting.
+export const sizeToMB = (s: string): number => {
+  if (!s) return 0;
+  const m = s.trim().match(/([\d.]+)\s*(GB|MB|TB|KB)?/i);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  const unit = (m[2] || "MB").toUpperCase();
+  const mult = unit === "TB" ? 1024 * 1024 : unit === "GB" ? 1024 : unit === "KB" ? 1 / 1024 : 1;
+  return n * mult;
+};

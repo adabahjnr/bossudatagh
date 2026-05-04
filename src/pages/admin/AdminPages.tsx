@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
-import { cedi, shortDate } from "@/lib/format";
+import { cedi, shortDate, sizeToMB } from "@/lib/format";
 import { toast } from "sonner";
 import type { CheckerPackage, DataPackage, Network, Notification, Order, OrderStatus } from "@/lib/types";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
@@ -138,7 +138,7 @@ export function AdminPackages() {
   const { state, upsertPackage, deletePackage } = useStore();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<DataPackage | null>(null);
-  const blank = (): DataPackage => ({ id: "p-" + Math.random().toString(36).slice(2, 8), network: "MTN", size: "1GB", validity: "30 days", pricePublic: 0, priceAgent: 0, active: true });
+  const blank = (): DataPackage => ({ id: "p-" + Math.random().toString(36).slice(2, 8), network: "MTN", size: "1GB", validity: "Non-expiry", pricePublic: 0, priceAgent: 0, active: true });
   const [form, setForm] = useState<DataPackage>(blank());
 
   const openNew = () => { setEdit(null); setForm(blank()); setOpen(true); };
@@ -152,7 +152,10 @@ export function AdminPackages() {
         <table className="w-full text-sm">
           <thead className="bg-muted/50"><tr><th className="text-left p-3">Network</th><th className="text-left p-3">Size</th><th className="text-left p-3">Validity</th><th className="text-left p-3">Public</th><th className="text-left p-3">Agent</th><th className="text-left p-3">Active</th><th className="text-right p-3">Actions</th></tr></thead>
           <tbody>
-            {state.packages.map((p) => (
+            {state.packages
+              .slice()
+              .sort((a, b) => a.network.localeCompare(b.network) || sizeToMB(a.size) - sizeToMB(b.size))
+              .map((p) => (
               <tr key={p.id} className="border-t border-border">
                 <td className="p-3"><Badge variant="outline">{p.network}</Badge></td>
                 <td className="p-3 font-medium">{p.size}</td>
