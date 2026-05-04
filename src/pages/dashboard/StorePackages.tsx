@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useStore } from "@/lib/store";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { toast } from "sonner";
 import { Plus, Trash2, TrendingUp } from "lucide-react";
 import type { Network, DataPackage } from "@/lib/types";
@@ -76,7 +76,10 @@ export default function StorePackages() {
     toast.success("Removed");
   };
 
-  const filtered = catalog.filter((p) => p.network === tab);
+  const filtered = catalog
+    .filter((p) => p.network === tab)
+    .slice()
+    .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size));
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -109,11 +112,6 @@ export default function StorePackages() {
                     <div className="text-muted-foreground text-xs">Your cost</div>
                     <div className="font-semibold">{cedi(pkg.priceAgent)}</div>
                   </div>
-                  <div className="text-sm">
-                    <div className="text-muted-foreground text-xs">Suggested public</div>
-                    <div className="font-semibold">{cedi(pkg.pricePublic)}</div>
-                  </div>
-
                   {row ? (
                     <>
                       <div className="flex items-end gap-2 ml-auto">
