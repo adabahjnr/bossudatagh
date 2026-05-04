@@ -183,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ...s, users: [...s.users, newUser], currentUserId: signedIn.id };
         });
       }
+      return { error: null };
     }
 
     const u = login(email);
