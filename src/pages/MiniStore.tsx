@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useStore } from "@/lib/store";
-import { cedi } from "@/lib/format";
+import { cedi, sizeToMB } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
 import { MessageCircle, Zap } from "lucide-react";
