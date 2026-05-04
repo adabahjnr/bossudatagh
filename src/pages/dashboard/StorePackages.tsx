@@ -146,7 +146,7 @@ export default function StorePackages() {
                         <Label className="text-xs">Your price</Label>
                         <Input
                           type="number"
-                          placeholder={String(pkg.pricePublic)}
+                          placeholder="0.00"
                           className="w-28"
                           value={draftPrice[pkg.id] ?? ""}
                           onChange={(e) => setDraftPrice((d) => ({ ...d, [pkg.id]: e.target.value }))}
