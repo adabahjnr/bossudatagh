@@ -74,7 +74,7 @@ function userToProfile(u: User): Profile {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { state, currentUser, signupAgent, login, logout } = useStore();
+  const { state, setState, currentUser, signupAgent, login, logout } = useStore();
 
   const roles: AppRole[] = currentUser
     ? currentUser.role === "admin"
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (existing) return { error: "An account with that email or phone already exists." };
 
       const slug = storeSlug ?? name.toLowerCase().replace(/\s+/g, "-");
-      const { error } = await authClient.auth.signUp({
+      const { data, error } = await authClient.auth.signUp({
         email,
         password,
         options: {
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (error) return { error: error.message };
 
-      signupAgent({ name, email, phone, password, storeSlug: slug });
+      signupAgent({ id: data.user?.id, name, email, phone, password, storeSlug: slug });
       return { error: null };
     } catch (e: any) {
       return { error: e?.message ?? "Sign up failed" };
@@ -119,8 +119,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthCtx["signIn"] = async (email, password) => {
     if (authClient) {
-      const { error } = await authClient.auth.signInWithPassword({ email, password });
+      const { data, error } = await authClient.auth.signInWithPassword({ email, password });
       if (error) return { error: error.message };
+
+      const signedIn = data.user;
+      if (signedIn) {
+        const metadata = (signedIn.user_metadata ?? {}) as {
+          name?: string;
+          phone?: string;
+          store_slug?: string;
+        };
+
+        const { data: roleRows } = await authClient
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", signedIn.id);
+
+        const roles = (roleRows ?? []).map((r: any) => String(r.role));
+        const mappedRole: User["role"] = roles.includes("admin")
+          ? "admin"
+          : roles.includes("subagent")
+            ? "subagent"
+            : "agent";
+
+        setState((s) => {
+          const existing = s.users.find((u) => u.id === signedIn.id || u.email.toLowerCase() === (signedIn.email ?? "").toLowerCase());
+          if (existing) {
+            return {
+              ...s,
+              users: s.users.map((u) =>
+                u.id === existing.id
+                  ? {
+                      ...u,
+                      id: signedIn.id,
+                      email: signedIn.email ?? u.email,
+                      name: metadata.name ?? u.name,
+                      phone: metadata.phone ?? u.phone,
+                      storeSlug: metadata.store_slug ?? u.storeSlug,
+                      role: mappedRole,
+                    }
+                  : u,
+              ),
+              currentUserId: signedIn.id,
+            };
+          }
+
+          const newUser: User = {
+            id: signedIn.id,
+            name: metadata.name ?? (signedIn.email?.split("@")[0] ?? "Agent"),
+            email: signedIn.email ?? email,
+            phone: metadata.phone ?? "",
+            role: mappedRole,
+            walletBalance: 0,
+            storeSlug: metadata.store_slug,
+            storeTemplate: "neon",
+            storeBrand: (metadata.name ?? "Agent") + "'s Data Store",
+            totalSales: 0,
+            totalReferrals: 0,
+            badges: [],
+            createdAt: new Date().toISOString(),
+            active: true,
+          };
+          return { ...s, users: [...s.users, newUser], currentUserId: signedIn.id };
+        });
+      }
     }
 
     const u = login(email);

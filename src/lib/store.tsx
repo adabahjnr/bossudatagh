@@ -69,7 +69,7 @@ interface StoreCtx {
   setState: (updater: (s: State) => State) => void;
   currentUser: User | null;
   // Auth
-  signupAgent: (input: { name: string; email: string; phone: string; password: string; storeSlug: string }) => User;
+  signupAgent: (input: { id?: string; name: string; email: string; phone: string; password: string; storeSlug: string }) => User;
   signupSubagent: (input: { name: string; email: string; phone: string; parentAgentId: string }) => User;
   login: (emailOrPhone: string) => User | null;
   logout: () => void;
@@ -130,10 +130,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState,
     currentUser,
 
-    signupAgent: ({ name, email, phone, storeSlug }) => {
-      const id = "u-" + Math.random().toString(36).slice(2, 9);
+    signupAgent: ({ id, name, email, phone, storeSlug }) => {
+      const userId = id ?? ("u-" + Math.random().toString(36).slice(2, 9));
       const user: User = {
-        id,
+        id: userId,
         name,
         email,
         phone,
@@ -150,7 +150,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         active: true,
       };
-      setState((s) => ({ ...s, users: [...s.users, user], currentUserId: id }));
+
+      setState((s) => {
+        const idx = s.users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === email.toLowerCase());
+        if (idx === -1) {
+          return { ...s, users: [...s.users, user], currentUserId: user.id };
+        }
+        const nextUsers = [...s.users];
+        nextUsers[idx] = { ...nextUsers[idx], ...user, role: nextUsers[idx].role ?? "agent" };
+        return { ...s, users: nextUsers, currentUserId: nextUsers[idx].id };
+      });
       return user;
     },
 
