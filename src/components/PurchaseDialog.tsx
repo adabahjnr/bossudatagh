@@ -103,13 +103,12 @@ export function PurchaseDialog({
                 <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0244000000" maxLength={10} />
               </div>
               <div className="space-y-2">
-                <Label>Email (optional)</Label>
+                <Label>Email</Label>
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
               <Button className="w-full bg-gradient-primary" disabled={submitting} onClick={submit}>
                 {submitting ? "Processing…" : `Pay ${cedi(price)}`}
               </Button>
-              <p className="text-xs text-muted-foreground text-center">Simulated payment for demo. Production wires to Paystack/Hubtel.</p>
             </div>
           </>
         ) : (
