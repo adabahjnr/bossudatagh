@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.95.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const DEFAULT_PROVIDER_ENDPOINT = "https://lsocdjpflecduumopijn.supabase.co/functions/v1/developer-api/airtime?action=data";
+const DEFAULT_PROVIDER_ENDPOINT = "https://lsocdjpflecduumopijn.supabase.co/functions/v1/developer-api/airtime";
 
 function toJsonResponse(status: number, payload: unknown) {
   return new Response(JSON.stringify(payload), {
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id,ref,product_label,network,recipient,amount,status,retry_count")
+      .select("id,ref,product_label,network,recipient,amount,status,retry_count,package_size")
       .eq("ref", ref)
       .maybeSingle();
 
@@ -99,9 +99,14 @@ Deno.serve(async (req) => {
       return toJsonResponse(400, { error: "Unsupported or missing order network" });
     }
 
+    // Derive package size: prefer dedicated column, fall back to parsing product_label (e.g. "MTN 5GB" → "5GB")
+    const packageSize: string =
+      order.package_size ??
+      (order.product_label as string).replace(/^\S+\s+/, "").trim();
+
     const payload = {
       networkCode,
-      amount: Number(order.amount),
+      package_size: packageSize,
       customerNumber: order.recipient,
       request_id: `${order.ref}-${Date.now()}`,
     };
