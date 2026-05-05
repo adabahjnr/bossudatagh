@@ -78,6 +78,7 @@ interface StoreCtx {
   // Orders
   placeOrder: (input: Omit<Order, "id" | "ref" | "createdAt" | "status"> & { status?: Order["status"] }) => Order;
   updateOrderStatus: (id: string, status: Order["status"]) => void;
+  retryOrderFulfillment: (ref: string) => Promise<{ ok: boolean; error?: string }>;
   // Wallet
   topUpWallet: (userId: string, amount: number) => void;
   deductWallet: (userId: string, amount: number) => boolean;
@@ -239,7 +240,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             agent_id: order.agentId ?? null,
             status: order.status,
           })
-          .select("id")
+          .select("id,ref")
           .single();
         if (!error && data && order.agentId) {
           await supabase.from("wallet_transactions").insert({
@@ -250,23 +251,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ref: order.ref,
           });
         }
-        // Simulate fulfillment
-        setTimeout(async () => {
+
+        // Trigger real provider fulfillment for wallet-based buys.
+        if (!error && data?.ref) {
+          const { data: fulfillment, error: fulfillmentError } = await supabase.functions.invoke("fulfill-order", {
+            body: { ref: data.ref },
+          });
+
           setStateRaw((s) => ({
             ...s,
-            orders: s.orders.map((o) => (o.id === order.id ? { ...o, status: "delivered" } : o)),
+            orders: s.orders.map((o) => {
+              if (o.id !== order.id) return o;
+              if (fulfillmentError) {
+                return {
+                  ...o,
+                  status: "failed",
+                  fulfillmentErrorCode: "FULFILLMENT_CALL_FAILED",
+                  fulfillmentErrorMessage: fulfillmentError.message,
+                };
+              }
+              return {
+                ...o,
+                status: fulfillment?.status === "delivered" ? "delivered" : "failed",
+                fulfillmentErrorCode: fulfillment?.errorCode ?? undefined,
+                fulfillmentErrorMessage: fulfillment?.errorMessage ?? undefined,
+              };
+            }),
           }));
-          if (data?.id) await supabase.from("orders").update({ status: "delivered" }).eq("id", data.id);
-        }, 1800);
+        }
       })();
       return order;
     },
 
     updateOrderStatus: (id, status) => {
       setState((s) => ({ ...s, orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)) }));
-      // The local id may be a temp id; if it matches a UUID, update by ref instead.
       const o = state.orders.find((x) => x.id === id);
-      if (o) void supabase.from("orders").update({ status }).eq("ref", o.ref);
+      if (o) {
+        void supabase.from("orders").update({ status }).eq("ref", o.ref);
+      } else if (/^[0-9a-f-]{36}$/i.test(id)) {
+        void supabase.from("orders").update({ status }).eq("id", id);
+      }
+    },
+
+    retryOrderFulfillment: async (ref) => {
+      const { data, error } = await supabase.functions.invoke("fulfill-order", {
+        body: { ref, retry: true },
+      });
+      if (error) return { ok: false, error: error.message };
+
+      setStateRaw((s) => ({
+        ...s,
+        orders: s.orders.map((o) =>
+          o.ref !== ref
+            ? o
+            : {
+                ...o,
+                status: data?.status === "delivered" ? "delivered" : "failed",
+                fulfillmentErrorCode: data?.errorCode ?? undefined,
+                fulfillmentErrorMessage: data?.errorMessage ?? undefined,
+              },
+        ),
+      }));
+
+      return { ok: true };
     },
 
     topUpWallet: (userId, amount) => {

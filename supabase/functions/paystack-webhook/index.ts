@@ -82,13 +82,17 @@ Deno.serve(async (req) => {
   // Default: order
   const agentId: string | null = meta.agentId ?? null;
   const packageId: string | null = meta.packageId ?? null;
-  const { data: order } = await supabase
-    .from("orders").select("id, status").eq("ref", ref).maybeSingle();
-  if (!order) return new Response("order not found", { status: 200 });
-  if (order.status !== "delivered") {
-    await supabase.from("orders").update({ status: "delivered" }).eq("id", order.id);
-  }
-  if (agentId && packageId) {
+  const fulfillRes = await fetch(`${SUPABASE_URL}/functions/v1/fulfill-order`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ref }),
+  });
+  const fulfill = await fulfillRes.json().catch(() => ({}));
+
+  if (agentId && packageId && fulfill?.status === "delivered") {
     await supabase.rpc("record_agent_sale", {
       _agent_id: agentId,
       _package_id: packageId,

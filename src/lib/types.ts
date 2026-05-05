@@ -41,6 +41,8 @@ export interface Order {
   email?: string;
   amount: number;
   status: OrderStatus;
+  fulfillmentErrorCode?: string;
+  fulfillmentErrorMessage?: string;
   createdAt: string;
   buyerType: "public" | "agent" | "subagent";
   agentId?: string;

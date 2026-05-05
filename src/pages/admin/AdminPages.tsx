@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi, shortDate, sizeToMB } from "@/lib/format";
 import { toast } from "sonner";
 import type { CheckerPackage, DataPackage, Network, Notification, Order, OrderStatus } from "@/lib/types";
@@ -87,9 +88,70 @@ export function AdminOverview() {
 
 /* ================= ORDERS ================= */
 export function AdminOrders() {
-  const { state, updateOrderStatus } = useStore();
+  const { state, retryOrderFulfillment } = useStore();
   const [filter, setFilter] = useState<"all" | OrderStatus>("all");
-  const list = state.orders.filter((o) => filter === "all" || o.status === filter);
+  const [orders, setOrders] = useState<Order[]>(state.orders);
+  const [loading, setLoading] = useState(false);
+  const [retryingRef, setRetryingRef] = useState<string | null>(null);
+
+  const loadOrders = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setLoading(false);
+      toast.error(error.message || "Failed to load orders");
+      return;
+    }
+
+    setOrders((data ?? []).map((row: any) => ({
+      id: row.id,
+      ref: row.ref,
+      productLabel: row.product_label,
+      network: row.network ?? undefined,
+      recipient: row.recipient,
+      email: row.email ?? undefined,
+      amount: Number(row.amount),
+      status: row.status,
+      createdAt: row.created_at,
+      buyerType: row.buyer_type,
+      agentId: row.agent_id ?? undefined,
+      fulfillmentErrorCode: row.fulfillment_error_code ?? undefined,
+      fulfillmentErrorMessage: row.fulfillment_error_message ?? undefined,
+    })));
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void loadOrders();
+  }, []);
+
+  const list = orders.filter((o) => filter === "all" || o.status === filter);
+
+  const retry = async (o: Order) => {
+    setRetryingRef(o.ref);
+    const out = await retryOrderFulfillment(o.ref);
+    setRetryingRef(null);
+    if (!out.ok) {
+      toast.error(out.error ?? "Retry failed");
+      return;
+    }
+    toast.success("Retry sent to provider API");
+    await loadOrders();
+  };
+
+  const refund = async (o: Order) => {
+    const { error } = await supabase.from("orders").update({ status: "refunded" }).eq("id", o.id);
+    if (error) {
+      toast.error(error.message || "Refund update failed");
+      return;
+    }
+    toast.success("Refunded");
+    await loadOrders();
+  };
 
   return (
     <div className="space-y-4">
@@ -112,6 +174,11 @@ export function AdminOrders() {
             <tr><th className="text-left p-3">Ref</th><th className="text-left p-3">Product</th><th className="text-left p-3">Recipient</th><th className="text-left p-3">Amount</th><th className="text-left p-3">Status</th><th className="text-left p-3">Date</th><th className="text-right p-3">Actions</th></tr>
           </thead>
           <tbody>
+            {loading && (
+              <tr>
+                <td className="p-3 text-muted-foreground" colSpan={7}>Loading orders...</td>
+              </tr>
+            )}
             {list.map((o: Order) => (
               <tr key={o.id} className="border-t border-border">
                 <td className="p-3 font-mono text-xs">{o.ref}</td>
@@ -121,8 +188,12 @@ export function AdminOrders() {
                 <td className="p-3"><Badge variant={o.status === "delivered" ? "default" : o.status === "failed" ? "destructive" : "secondary"}>{o.status}</Badge></td>
                 <td className="p-3 text-xs text-muted-foreground">{shortDate(o.createdAt)}</td>
                 <td className="p-3 text-right space-x-1">
-                  {o.status === "failed" && <Button size="sm" variant="outline" onClick={() => { updateOrderStatus(o.id, "processing"); toast.success("Retrying order"); setTimeout(() => updateOrderStatus(o.id, "delivered"), 1500); }}>Retry</Button>}
-                  {o.status !== "refunded" && o.status !== "processing" && <Button size="sm" variant="ghost" onClick={() => { updateOrderStatus(o.id, "refunded"); toast.success("Refunded"); }}>Refund</Button>}
+                  {o.status === "failed" && o.fulfillmentErrorCode === "PROVIDER_INSUFFICIENT_BALANCE" && (
+                    <Button size="sm" variant="outline" disabled={retryingRef === o.ref} onClick={() => void retry(o)}>
+                      {retryingRef === o.ref ? "Retrying..." : "Retry"}
+                    </Button>
+                  )}
+                  {o.status !== "refunded" && o.status !== "processing" && <Button size="sm" variant="ghost" onClick={() => void refund(o)}>Refund</Button>}
                 </td>
               </tr>
             ))}
