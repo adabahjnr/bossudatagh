@@ -1,15 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  defaultSiteSettings,
-  mockAgents,
-  mockCampaigns,
-  mockCheckers,
-  mockNotifications,
-  mockOrders,
-  mockPackages,
-  mockWithdrawals,
-} from "./mockData";
 import type {
   AgentStorePackage,
   CheckerPackage,
@@ -23,7 +13,16 @@ import type {
 } from "./types";
 import { genApiKey, genRef } from "./format";
 
-const KEY = "geteasydata.state.v1";
+const KEY = "geteasydata.state.v2";
+
+const defaultSiteSettings: SiteSettings = {
+  siteName: "GetEasyData",
+  whatsappNumber: "",
+  agentFee: 50,
+  minWithdrawal: 50,
+  maintenanceMode: false,
+  maintenanceMessage: "",
+};
 
 interface State {
   users: User[];
@@ -40,15 +39,15 @@ interface State {
 }
 
 const initialState: State = {
-  users: mockAgents,
-  packages: mockPackages,
+  users: [],
+  packages: [],
   agentStorePackages: [],
-  checkers: mockCheckers,
-  orders: mockOrders,
-  withdrawals: mockWithdrawals,
-  campaigns: mockCampaigns,
+  checkers: [],
+  orders: [],
+  withdrawals: [],
+  campaigns: [],
   settings: defaultSiteSettings,
-  notifications: mockNotifications,
+  notifications: [],
   currentUserId: null,
   redemptionsByPhone: {},
 };
