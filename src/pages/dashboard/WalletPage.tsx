@@ -4,23 +4,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 
 export default function WalletPage() {
-  const { currentUser, topUpWallet, state } = useStore();
+  const { currentUser, state } = useStore();
   const [amount, setAmount] = useState("");
   const [open, setOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
   if (!currentUser) return null;
 
-  const onTopUp = () => {
+  const onTopUp = async () => {
     const n = parseFloat(amount);
     if (!n || n < 5) { toast.error("Minimum top-up is ₵5"); return; }
-    topUpWallet(currentUser.id, n);
-    toast.success(`${cedi(n)} added (simulated)`);
-    setAmount(""); setOpen(false);
+    if (!currentUser.email) { toast.error("Email required for Paystack"); return; }
+    setPaying(true);
+    const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+      body: {
+        purpose: "wallet_topup",
+        email: currentUser.email,
+        amount: n,
+        userId: currentUser.id,
+      },
+    });
+    setPaying(false);
+    if (error || !data?.authorization_url) {
+      toast.error(error?.message ?? data?.error ?? "Could not start payment");
+      return;
+    }
+    window.location.href = data.authorization_url;
   };
 
   const myOrders = state.orders.filter((o) => o.agentId === currentUser.id);
@@ -44,7 +59,9 @@ export default function WalletPage() {
                     <Button key={v} variant="outline" size="sm" onClick={() => setAmount(v.toString())}>{cedi(v)}</Button>
                   ))}
                 </div>
-                <Button className="w-full bg-gradient-primary" onClick={onTopUp}>Pay {amount ? cedi(parseFloat(amount) || 0) : "now"}</Button>
+                <Button className="w-full bg-gradient-primary" disabled={paying} onClick={onTopUp}>
+                  {paying ? "Redirecting…" : `Pay ${amount ? cedi(parseFloat(amount) || 0) : "now"}`}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
