@@ -145,33 +145,46 @@ export function AdminPackages() {
   const openEdit = (p: DataPackage) => { setEdit(p); setForm(p); setOpen(true); };
   const save = () => { upsertPackage(form); toast.success(edit ? "Package updated" : "Package added"); setOpen(false); };
 
+  const NETWORK_ORDER: Network[] = ["MTN", "Telecel", "AirtelTigo"];
+  const grouped = NETWORK_ORDER.map((net) => ({
+    network: net,
+    packages: state.packages
+      .filter((p) => p.network === net)
+      .slice()
+      .sort((a, b) => sizeToMB(a.size) - sizeToMB(b.size)),
+  })).filter((g) => g.packages.length > 0);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between"><h1 className="text-2xl font-bold">Data Packages</h1><Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add package</Button></div>
-      <Card className="overflow-x-auto shadow-soft">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50"><tr><th className="text-left p-3">Network</th><th className="text-left p-3">Size</th><th className="text-left p-3">Validity</th><th className="text-left p-3">Public</th><th className="text-left p-3">Agent</th><th className="text-left p-3">Active</th><th className="text-right p-3">Actions</th></tr></thead>
-          <tbody>
-            {state.packages
-              .slice()
-              .sort((a, b) => a.network.localeCompare(b.network) || sizeToMB(a.size) - sizeToMB(b.size))
-              .map((p) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="p-3"><Badge variant="outline">{p.network}</Badge></td>
-                <td className="p-3 font-medium">{p.size}</td>
-                <td className="p-3">{p.validity}</td>
-                <td className="p-3">{cedi(p.pricePublic)}</td>
-                <td className="p-3">{cedi(p.priceAgent)}</td>
-                <td className="p-3"><Switch checked={p.active} onCheckedChange={(v) => upsertPackage({ ...p, active: v })} /></td>
-                <td className="p-3 text-right space-x-1">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(p)}>Edit</Button>
-                  <Button size="sm" variant="ghost" onClick={() => { deletePackage(p.id); toast.success("Deleted"); }}><Trash2 className="h-4 w-4" /></Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      {grouped.map(({ network, packages }) => (
+        <div key={network} className="space-y-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Badge variant="outline" className="text-sm px-3 py-1">{network}</Badge>
+            <span className="text-muted-foreground text-sm font-normal">{packages.length} package{packages.length !== 1 ? "s" : ""}</span>
+          </h2>
+          <Card className="overflow-x-auto shadow-soft">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50"><tr><th className="text-left p-3">Size</th><th className="text-left p-3">Validity</th><th className="text-left p-3">Public</th><th className="text-left p-3">Agent</th><th className="text-left p-3">Active</th><th className="text-right p-3">Actions</th></tr></thead>
+              <tbody>
+                {packages.map((p) => (
+                  <tr key={p.id} className="border-t border-border">
+                    <td className="p-3 font-medium">{p.size}</td>
+                    <td className="p-3">{p.validity}</td>
+                    <td className="p-3">{cedi(p.pricePublic)}</td>
+                    <td className="p-3">{cedi(p.priceAgent)}</td>
+                    <td className="p-3"><Switch checked={p.active} onCheckedChange={(v) => upsertPackage({ ...p, active: v })} /></td>
+                    <td className="p-3 text-right space-x-1">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(p)}>Edit</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { deletePackage(p.id); toast.success("Deleted"); }}><Trash2 className="h-4 w-4" /></Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      ))}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{edit ? "Edit" : "Add"} package</DialogTitle></DialogHeader>
