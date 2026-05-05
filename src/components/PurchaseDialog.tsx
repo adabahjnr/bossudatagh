@@ -25,7 +25,6 @@ export function PurchaseDialog({
   onOpenChange: (o: boolean) => void;
   pricing?: "public" | "agent";
 }) {
-  const { creditWallet, setState } = useStore();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"form" | "success">("form");
@@ -46,9 +45,6 @@ export function PurchaseDialog({
     if (!o) reset();
     onOpenChange(o);
   };
-
-  const genRef = () =>
-    "BD-" + Math.random().toString(36).slice(2, 8).toUpperCase();
 
   const submit = async () => {
     if (!/^0\d{9}$/.test(phone)) {
