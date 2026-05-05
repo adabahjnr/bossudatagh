@@ -55,65 +55,31 @@ export function PurchaseDialog({
       toast.error("Enter a valid 10-digit Ghana phone number");
       return;
     }
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast.error("Enter a valid email — Paystack requires it for the receipt");
+      return;
+    }
     setSubmitting(true);
-    const ref = genRef();
-    const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        ref,
-        product_label: label,
+    const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+      body: {
+        email,
+        amount: price,
+        productLabel: label,
         network: item.kind === "data" ? item.pkg.network : null,
         recipient: phone,
-        email: email || null,
-        amount: price,
-        buyer_type: item.agentId ? "agent" : "public",
-        agent_id: item.agentId ?? null,
-        status: "processing",
-      })
-      .select("id, ref")
-      .single();
-    if (error || !data) {
+        agentId: item.agentId ?? null,
+        packageId: item.pkg.id,
+        buyerType: item.agentId ? "agent" : "public",
+      },
+    });
+    if (error || !data?.authorization_url) {
       setSubmitting(false);
-      toast.error(error?.message ?? "Could not place order");
+      toast.error(error?.message ?? data?.error ?? "Could not start payment");
       return;
     }
     setOrderRef(data.ref);
-    setStep("success");
-    setSubmitting(false);
-    toast.success("Payment received. Delivering now…");
-    // Simulate fulfillment ~1.8s later
-    setTimeout(() => {
-      supabase.from("orders").update({ status: "delivered" }).eq("id", data.id).then(() => {});
-    }, 1800);
-    // Credit agent profit immediately for store sales of data packages
-    if (item.agentId && item.kind === "data") {
-      const profit = Math.max(price - item.pkg.priceAgent, 0);
-      if (profit > 0) {
-        creditWallet(item.agentId, profit);
-        setState((s) => ({
-          ...s,
-          users: s.users.map((u) =>
-            u.id === item.agentId
-              ? { ...u, totalSales: (u.totalSales ?? 0) + 1 }
-              : u,
-          ),
-        }));
-      }
-
-      supabase.rpc("record_agent_sale", {
-        _agent_id: item.agentId,
-        _package_id: item.pkg.id,
-        _sale_price: price,
-        _order_ref: data.ref,
-      }).then(({ data: res }) => {
-        const r = res as { ok?: boolean; profit?: number } | null;
-        if (r?.ok && r.profit && r.profit > 0) {
-          toast.success(`Agent earned ₵${r.profit.toFixed(2)} profit`);
-        } else if (profit > 0) {
-          toast.success(`Agent earned ${cedi(profit)} profit`);
-        }
-      });
-    }
+    // Redirect to Paystack hosted checkout
+    window.location.href = data.authorization_url;
   };
 
   const copy = () => {
