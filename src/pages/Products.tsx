@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cedi, sizeToMB } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
@@ -11,16 +10,41 @@ import type { DataPackage, Network } from "@/lib/types";
 import { Smartphone } from "lucide-react";
 
 const NETWORKS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
-const NETWORK_COLORS: Record<Network, string> = {
-  MTN: "from-yellow-400 to-yellow-600",
-  Telecel: "from-red-500 to-red-700",
-  AirtelTigo: "from-blue-500 to-blue-700",
-};
 
-const NETWORK_CARD: Record<Network, string> = {
-  MTN: "bg-gradient-to-br from-yellow-300/30 to-yellow-500/10 border-yellow-500/50",
-  Telecel: "bg-gradient-to-br from-red-500/30 to-red-700/10 border-red-500/50",
-  AirtelTigo: "bg-gradient-to-br from-blue-500/30 to-blue-700/10 border-blue-500/50",
+const NETWORK_STYLE: Record<Network, {
+  card: string; badge: string; networkLabel: string;
+  size: string; meta: string; priceLabel: string; price: string; btn: string;
+}> = {
+  MTN: {
+    card: "bg-yellow-400 border-yellow-500",
+    badge: "bg-yellow-500 text-black border-yellow-600",
+    networkLabel: "bg-yellow-500 text-black",
+    size: "text-black",
+    meta: "text-yellow-900",
+    priceLabel: "text-yellow-900",
+    price: "text-black",
+    btn: "bg-yellow-900 text-white hover:bg-yellow-800",
+  },
+  Telecel: {
+    card: "bg-red-600 border-red-700",
+    badge: "bg-red-700 text-white border-red-800",
+    networkLabel: "bg-red-700 text-white",
+    size: "text-white",
+    meta: "text-red-100",
+    priceLabel: "text-red-100",
+    price: "text-white",
+    btn: "bg-white text-red-700 hover:bg-red-50",
+  },
+  AirtelTigo: {
+    card: "bg-blue-700 border-blue-800",
+    badge: "bg-blue-800 text-white border-blue-900",
+    networkLabel: "bg-blue-800 text-white",
+    size: "text-white",
+    meta: "text-blue-100",
+    priceLabel: "text-blue-100",
+    price: "text-white",
+    btn: "bg-white text-blue-700 hover:bg-blue-50",
+  },
 };
 
 export default function Products() {
@@ -65,22 +89,25 @@ export default function Products() {
             ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {packages.map((p) => (
-              <Card key={p.id} className={`p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 ${NETWORK_CARD[p.network]}`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${NETWORK_COLORS[p.network]}`}>{p.network}</div>
-                  <Badge variant="secondary">{p.validity}</Badge>
-                </div>
-                <div className="text-3xl font-bold">{p.size}</div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Price</div>
-                    <div className="text-2xl font-bold text-gradient-primary">{cedi(p.pricePublic)}</div>
+            {packages.map((p) => {
+              const ns = NETWORK_STYLE[p.network];
+              return (
+                <Card key={p.id} className={`p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 ${ns.card}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${ns.networkLabel}`}>{p.network}</div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded border ${ns.badge}`}>{p.validity}</span>
                   </div>
-                  <Button onClick={() => setPurchase({ kind: "data", pkg: p })}>Buy</Button>
-                </div>
-              </Card>
-            ))}
+                  <div className={`text-3xl font-bold ${ns.size}`}>{p.size}</div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <div>
+                      <div className={`text-xs ${ns.priceLabel}`}>Price</div>
+                      <div className={`text-2xl font-bold ${ns.price}`}>{cedi(p.pricePublic)}</div>
+                    </div>
+                    <Button className={ns.btn} onClick={() => setPurchase({ kind: "data", pkg: p })}>Buy</Button>
+                  </div>
+                </Card>
+              );
+            })}
             {packages.length === 0 && <p className="text-muted-foreground col-span-full text-center">No packages available right now.</p>}
           </div>
         </TabsContent>

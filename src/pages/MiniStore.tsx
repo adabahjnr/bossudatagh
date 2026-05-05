@@ -7,6 +7,12 @@ import { PurchaseDialog } from "@/components/PurchaseDialog";
 import { MessageCircle, Zap } from "lucide-react";
 import type { CheckerPackage, DataPackage, Network } from "@/lib/types";
 
+const NET_CARD: Record<Network, { card: string; size: string; meta: string; price: string; btn: string }> = {
+  MTN: { card: "bg-yellow-400 border-yellow-500 rounded-2xl p-5 shadow-2xl", size: "text-black", meta: "text-yellow-900", price: "text-black", btn: "bg-yellow-900 text-white hover:bg-yellow-800" },
+  Telecel: { card: "bg-red-600 border-red-700 rounded-2xl p-5 shadow-2xl", size: "text-white", meta: "text-red-100", price: "text-white", btn: "bg-white text-red-700 hover:bg-red-50" },
+  AirtelTigo: { card: "bg-blue-700 border-blue-800 rounded-2xl p-5 shadow-2xl", size: "text-white", meta: "text-blue-100", price: "text-white", btn: "bg-white text-blue-700 hover:bg-blue-50" },
+};
+
 export default function MiniStore() {
   const { slug } = useParams();
   const { state } = useStore();
@@ -106,16 +112,19 @@ export default function MiniStore() {
             ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {packages.map((p) => (
-              <div key={p.id} className={t.card}>
-                <div className="text-xs uppercase tracking-wider opacity-70">{p.network} · {p.validity}</div>
-                <div className="text-3xl font-bold mt-1">{p.size}</div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div className="text-2xl font-bold">{cedi(p.pricePublic)}</div>
-                  <Button className={t.accent + " hover:opacity-90"} onClick={() => setPurchase({ kind: "data", pkg: p, agentId: agent.id })}>Buy</Button>
+            {packages.map((p) => {
+              const ns = NET_CARD[p.network];
+              return (
+                <div key={p.id} className={ns.card}>
+                  <div className={`text-xs uppercase tracking-wider ${ns.meta}`}>{p.network} · {p.validity}</div>
+                  <div className={`text-3xl font-bold mt-1 ${ns.size}`}>{p.size}</div>
+                  <div className="mt-4 flex items-end justify-between">
+                    <div className={`text-2xl font-bold ${ns.price}`}>{cedi(p.pricePublic)}</div>
+                    <Button className={ns.btn + " hover:opacity-90"} onClick={() => setPurchase({ kind: "data", pkg: p, agentId: agent.id })}>Buy</Button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
