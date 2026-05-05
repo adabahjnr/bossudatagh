@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useStore } from "@/lib/store";
 import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
