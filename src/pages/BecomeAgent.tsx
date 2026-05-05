@@ -10,6 +10,8 @@ import { cedi } from "@/lib/format";
 import { toast } from "sonner";
 import { Check, Wallet, Users, Code, Store } from "lucide-react";
 
+const PENDING_KEY = "bd.pendingSignup";
+
 export default function BecomeAgent() {
   const { signUp } = useAuth();
   const nav = useNavigate();
@@ -29,6 +31,37 @@ export default function BecomeAgent() {
       });
   }, []);
 
+  // Handle Paystack callback: ?reference=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reference = params.get("reference") || params.get("trxref");
+    const raw = localStorage.getItem(PENDING_KEY);
+    if (!reference || !raw) return;
+    const pending = JSON.parse(raw) as typeof form;
+    (async () => {
+      setPending(true);
+      const { data, error } = await supabase.functions.invoke("paystack-verify", { body: { reference } });
+      if (error || !data?.ok) {
+        setPending(false);
+        toast.error("Payment was not successful. Try again.");
+        return;
+      }
+      const { error: signErr } = await signUp({
+        email: pending.email,
+        password: pending.password,
+        name: pending.name,
+        phone: pending.phone,
+        storeSlug: pending.storeSlug.toLowerCase(),
+      });
+      setPending(false);
+      localStorage.removeItem(PENDING_KEY);
+      window.history.replaceState({}, "", "/become-agent");
+      if (signErr) { toast.error(signErr); return; }
+      toast.success("Welcome aboard! Your store is live.");
+      nav("/dashboard");
+    })();
+  }, [signUp, nav]);
+
   const next = async () => {
     if (!form.name || !form.email || !form.phone || !form.password || !form.storeSlug) {
       toast.error("Please fill in all fields"); return;
@@ -46,24 +79,21 @@ export default function BecomeAgent() {
 
   const pay = async () => {
     setPending(true);
-    // Simulate ₵50 payment delay
-    await new Promise((r) => setTimeout(r, 900));
-    toast.success(`Payment of ${cedi(agentFee)} received (simulated)`);
-    const { error } = await signUp({
-      email: form.email,
-      password: form.password,
-      name: form.name,
-      phone: form.phone,
-      storeSlug: form.storeSlug.toLowerCase(),
+    localStorage.setItem(PENDING_KEY, JSON.stringify(form));
+    const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+      body: {
+        purpose: "agent_signup",
+        email: form.email,
+        amount: agentFee,
+      },
     });
-    setPending(false);
-    if (error) {
-      toast.error(error);
-      setStep("info");
+    if (error || !data?.authorization_url) {
+      setPending(false);
+      localStorage.removeItem(PENDING_KEY);
+      toast.error(error?.message ?? data?.error ?? "Could not start payment");
       return;
     }
-    toast.success("Welcome aboard! Your store is live.");
-    nav("/dashboard");
+    window.location.href = data.authorization_url;
   };
 
   return (
@@ -101,7 +131,7 @@ export default function BecomeAgent() {
                   <div className="mt-3 text-xs opacity-80">Includes wallet, mini-store, API key, referrals</div>
                 </div>
                 <Button className="w-full mt-6" disabled={pending} onClick={pay}>
-                  {pending ? "Processing payment…" : `Pay ${cedi(agentFee)} (simulated)`}
+                  {pending ? "Redirecting to Paystack…" : `Pay ${cedi(agentFee)} with Paystack`}
                 </Button>
               </>
             )}
