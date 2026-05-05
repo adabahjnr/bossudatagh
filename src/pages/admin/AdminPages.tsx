@@ -19,25 +19,45 @@ import { TrendingUp, ShoppingBag, Users, AlertCircle, DollarSign, Copy, Plus, Tr
 /* ================= OVERVIEW ================= */
 export function AdminOverview() {
   const { state } = useStore();
-  const totalRevenue = state.orders.filter((o) => o.status === "delivered").reduce((s, o) => s + o.amount, 0);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("orders")
+      .select("id,ref,product_label,network,recipient,amount,status,created_at,agent_id")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setOrders(
+          (data ?? []).map((row: any) => ({
+            id: row.id, ref: row.ref, productLabel: row.product_label,
+            network: row.network, recipient: row.recipient, amount: Number(row.amount),
+            status: row.status, createdAt: row.created_at, agentId: row.agent_id,
+          }))
+        );
+        setLoadingOrders(false);
+      });
+  }, []);
+
+  const totalRevenue = orders.filter((o) => o.status === "delivered").reduce((s, o) => s + o.amount, 0);
   const activeAgents = state.users.filter((u) => u.role === "agent" && u.active).length;
-  const failed = state.orders.filter((o) => o.status === "failed").length;
+  const failed = orders.filter((o) => o.status === "failed").length;
   const pendingW = state.withdrawals.filter((w) => w.status === "pending").length;
 
   // Build last 7 days chart
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
     const key = d.toISOString().slice(0, 10);
-    const total = state.orders.filter((o) => o.createdAt.slice(0, 10) === key && o.status === "delivered").reduce((s, o) => s + o.amount, 0);
-    return { day: d.toLocaleDateString("en", { weekday: "short" }), revenue: total, orders: state.orders.filter((o) => o.createdAt.slice(0, 10) === key).length };
+    const total = orders.filter((o) => o.createdAt.slice(0, 10) === key && o.status === "delivered").reduce((s, o) => s + o.amount, 0);
+    return { day: d.toLocaleDateString("en", { weekday: "short" }), revenue: total, orders: orders.filter((o) => o.createdAt.slice(0, 10) === key).length };
   });
 
   const stats = [
-    { label: "Revenue", value: cedi(totalRevenue), icon: DollarSign, color: "bg-gradient-primary" },
-    { label: "Orders", value: state.orders.length, icon: ShoppingBag, color: "bg-gradient-gold" },
+    { label: "Revenue", value: loadingOrders ? "…" : cedi(totalRevenue), icon: DollarSign, color: "bg-gradient-primary" },
+    { label: "Orders", value: loadingOrders ? "…" : orders.length, icon: ShoppingBag, color: "bg-gradient-gold" },
     { label: "Active agents", value: activeAgents, icon: Users, color: "bg-success" },
     { label: "Pending withdrawals", value: pendingW, icon: TrendingUp, color: "bg-warning" },
-    { label: "Failed orders", value: failed, icon: AlertCircle, color: "bg-destructive" },
+    { label: "Failed orders", value: loadingOrders ? "…" : failed, icon: AlertCircle, color: "bg-destructive" },
   ];
 
   return (
