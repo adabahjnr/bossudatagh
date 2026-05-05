@@ -94,6 +94,7 @@ export interface FreeDataCampaign {
 export interface SiteSettings {
   siteName: string;
   whatsappNumber: string;
+  whatsappChannelLink?: string;
   agentFee: number;
   minWithdrawal: number;
   maintenanceMode: boolean;

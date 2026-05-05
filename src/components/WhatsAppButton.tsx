@@ -3,10 +3,11 @@ import { useStore } from "@/lib/store";
 
 export function WhatsAppButton() {
   const { state } = useStore();
-  const num = state.settings.whatsappNumber;
+  const { whatsappNumber, whatsappChannelLink } = state.settings;
+  const href = whatsappChannelLink || `https://wa.me/${whatsappNumber}`;
   return (
     <a
-      href={`https://wa.me/${num}`}
+      href={href}
       target="_blank"
       rel="noreferrer"
       aria-label="Chat on WhatsApp"

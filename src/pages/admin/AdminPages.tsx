@@ -413,6 +413,7 @@ export function AdminSettings() {
       <Card className="p-6 shadow-soft space-y-3">
         <div><Label>Site name</Label><Input value={s.siteName} onChange={(e) => setS({ ...s, siteName: e.target.value })} /></div>
         <div><Label>WhatsApp number (intl format)</Label><Input value={s.whatsappNumber} onChange={(e) => setS({ ...s, whatsappNumber: e.target.value })} placeholder="233244000000" /></div>
+        <div><Label>WhatsApp channel link (used by floating button)</Label><Input value={s.whatsappChannelLink ?? ""} onChange={(e) => setS({ ...s, whatsappChannelLink: e.target.value })} placeholder="https://whatsapp.com/channel/..." /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><Label>Agent fee (₵)</Label><Input type="number" value={s.agentFee} onChange={(e) => setS({ ...s, agentFee: parseFloat(e.target.value) || 0 })} /></div>
           <div><Label>Min withdrawal (₵)</Label><Input type="number" value={s.minWithdrawal} onChange={(e) => setS({ ...s, minWithdrawal: parseFloat(e.target.value) || 0 })} /></div>

@@ -18,6 +18,7 @@ const KEY = "geteasydata.state.v2";
 const defaultSiteSettings: SiteSettings = {
   siteName: "GetEasyData",
   whatsappNumber: "",
+  whatsappChannelLink: "",
   agentFee: 50,
   minWithdrawal: 50,
   maintenanceMode: false,
@@ -573,6 +574,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const row: {
         site_name?: string;
         whatsapp_number?: string;
+        whatsapp_channel_link?: string;
         agent_fee?: number;
         min_withdrawal?: number;
         maintenance_mode?: boolean;
@@ -581,6 +583,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } = {};
       if (patch.siteName !== undefined) row.site_name = patch.siteName;
       if (patch.whatsappNumber !== undefined) row.whatsapp_number = patch.whatsappNumber;
+      if (patch.whatsappChannelLink !== undefined) row.whatsapp_channel_link = patch.whatsappChannelLink;
       if (patch.agentFee !== undefined) row.agent_fee = patch.agentFee;
       if (patch.minWithdrawal !== undefined) row.min_withdrawal = patch.minWithdrawal;
       if (patch.maintenanceMode !== undefined) row.maintenance_mode = patch.maintenanceMode;
