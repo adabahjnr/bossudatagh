@@ -93,6 +93,12 @@ export function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>(state.orders);
   const [loading, setLoading] = useState(false);
   const [retryingRef, setRetryingRef] = useState<string | null>(null);
+  const [sessionRecovered, setSessionRecovered] = useState(false);
+
+  const isJwtExpiredError = (message?: string) => {
+    const text = String(message ?? "").toLowerCase();
+    return text.includes("jwt") && text.includes("expired");
+  };
 
   const loadOrders = async () => {
     setLoading(true);
@@ -102,10 +108,19 @@ export function AdminOrders() {
       .order("created_at", { ascending: false });
 
     if (error) {
+      if (isJwtExpiredError(error.message) && !sessionRecovered) {
+        // Clear stale token and retry once; read policy allows anon order lookup.
+        await supabase.auth.signOut();
+        setSessionRecovered(true);
+        await loadOrders();
+        return;
+      }
       setLoading(false);
       toast.error(error.message || "Failed to load orders");
       return;
     }
+
+    if (sessionRecovered) setSessionRecovered(false);
 
     setOrders((data ?? []).map((row: any) => ({
       id: row.id,
