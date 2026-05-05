@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id,ref,product_label,network,recipient,amount,status,retry_count")
+      .select("id,ref,product_label,network,recipient,amount,status")
       .eq("ref", ref)
       .maybeSingle();
 
@@ -140,14 +140,7 @@ Deno.serve(async (req) => {
 
     const { error: updateError } = await supabase
       .from("orders")
-      .update({
-        status: nextStatus,
-        fulfillment_error_code: nextErrorCode,
-        fulfillment_error_message: nextErrorMessage,
-        provider_response: providerBody,
-        retry_count: Number(order.retry_count ?? 0) + 1,
-        last_fulfillment_attempt_at: new Date().toISOString(),
-      })
+      .update({ status: nextStatus })
       .eq("id", order.id);
 
     if (updateError) return toJsonResponse(500, { error: updateError.message });
