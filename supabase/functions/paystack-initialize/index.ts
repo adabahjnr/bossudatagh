@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const callbackPath =
       purpose === "agent_signup" ? "/dashboard"
       : purpose === "wallet_topup" ? "/dashboard/wallet"
-      : `/track?ref=${ref}`;
+      : `/payment-success?ref=${ref}`;
 
     const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",

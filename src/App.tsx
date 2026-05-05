@@ -19,6 +19,7 @@ import TrackOrder from "@/pages/TrackOrder";
 import BecomeAgent from "@/pages/BecomeAgent";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
+import PaymentSuccess from "@/pages/PaymentSuccess";
 import MiniStore from "@/pages/MiniStore";
 import Overview from "@/pages/dashboard/Overview";
 import WalletPage from "@/pages/dashboard/WalletPage";
@@ -56,6 +57,7 @@ const App = () => (
                     <Route path="/become-agent" element={<BecomeAgent />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/payment-success" element={<PaymentSuccess />} />
                   </Route>
                 <Route path="/store/:slug" element={<MiniStore />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>

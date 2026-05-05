@@ -3,9 +3,11 @@ import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cedi, sizeToMB } from "@/lib/format";
 import { toast } from "sonner";
-import type { Network } from "@/lib/types";
+import { CheckCircle2, Copy, Check } from "lucide-react";
+import type { Network, Order } from "@/lib/types";
 
 const NETS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
 
@@ -42,6 +44,8 @@ export default function BuyProducts() {
   const { state, currentUser, deductWallet, placeOrder } = useStore();
   const [net, setNet] = useState<Network>("MTN");
   const [recipient, setRecipient] = useState("");
+  const [successOrder, setSuccessOrder] = useState<Order | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const packages = useMemo(
     () =>
@@ -58,16 +62,59 @@ export default function BuyProducts() {
     if (!pkg) return;
     if (!/^0\d{9}$/.test(recipient)) { toast.error("Enter a valid recipient phone"); return; }
     if (!deductWallet(currentUser.id, pkg.priceAgent)) { toast.error("Insufficient wallet balance. Top up first."); return; }
-    placeOrder({
+    const order = placeOrder({
       productLabel: `${pkg.network} ${pkg.size}`, network: pkg.network,
       recipient, amount: pkg.priceAgent, buyerType: "agent", agentId: currentUser.id,
     });
-    toast.success(`Order placed for ${recipient}`);
+    setSuccessOrder(order);
     setRecipient("");
+  };
+
+  const copyRef = () => {
+    if (!successOrder) return;
+    navigator.clipboard.writeText(successOrder.ref);
+    setCopied(true);
+    toast.success("Reference copied");
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="space-y-6 max-w-5xl">
+      {/* Success dialog */}
+      <Dialog open={!!successOrder} onOpenChange={(o) => { if (!o) setSuccessOrder(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Order Placed!</DialogTitle></DialogHeader>
+          <div className="text-center py-2">
+            <div className="mx-auto h-16 w-16 rounded-full bg-success/15 grid place-items-center mb-4">
+              <CheckCircle2 className="h-8 w-8 text-success" />
+            </div>
+            <p className="text-muted-foreground text-sm">
+              <span className="font-semibold text-foreground">{successOrder?.productLabel}</span> is being sent to{" "}
+              <span className="font-semibold text-foreground">{successOrder?.recipient}</span>.
+            </p>
+          </div>
+          <div className="rounded-xl bg-muted p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground mb-0.5">Order Reference</div>
+              <div className="font-mono font-bold truncate">{successOrder?.ref}</div>
+            </div>
+            <Button size="icon" variant="ghost" onClick={copyRef}>
+              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="rounded-lg bg-muted/50 p-3">
+              <div className="text-xs text-muted-foreground mb-0.5">Amount deducted</div>
+              <div className="font-medium">{cedi(successOrder?.amount ?? 0)}</div>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-3">
+              <div className="text-xs text-muted-foreground mb-0.5">Recipient</div>
+              <div className="font-medium">{successOrder?.recipient}</div>
+            </div>
+          </div>
+          <Button className="w-full" onClick={() => setSuccessOrder(null)}>Done</Button>
+        </DialogContent>
+      </Dialog>
       <div>
         <h1 className="text-2xl font-bold">Buy products</h1>
         <p className="text-muted-foreground">Wallet-deducted at agent prices. Instant delivery.</p>

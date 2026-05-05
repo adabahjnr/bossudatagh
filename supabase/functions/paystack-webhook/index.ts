@@ -82,6 +82,14 @@ Deno.serve(async (req) => {
   // Default: order
   const agentId: string | null = meta.agentId ?? null;
   const packageId: string | null = meta.packageId ?? null;
+
+  // Idempotency: skip fulfillment if already delivered
+  const { data: existingOrder } = await supabase
+    .from("orders").select("id,status").eq("ref", ref).maybeSingle();
+  if (existingOrder?.status === "delivered") {
+    return new Response("ok", { status: 200 });
+  }
+
   const fulfillRes = await fetch(`${SUPABASE_URL}/functions/v1/fulfill-order`, {
     method: "POST",
     headers: {
@@ -92,13 +100,50 @@ Deno.serve(async (req) => {
   });
   const fulfill = await fulfillRes.json().catch(() => ({}));
 
+  // Credit agent profit when order was placed through their store
   if (agentId && packageId && fulfill?.status === "delivered") {
-    await supabase.rpc("record_agent_sale", {
-      _agent_id: agentId,
-      _package_id: packageId,
-      _sale_price: paidAmount,
-      _order_ref: ref,
-    });
+    // Look up platform's agent price for this package
+    const { data: pkg } = await supabase
+      .from("data_packages")
+      .select("price_agent")
+      .eq("id", packageId)
+      .maybeSingle();
+
+    if (pkg) {
+      // Profit = what customer paid (agent's set price) minus platform's agent cost
+      const profit = paidAmount - Number(pkg.price_agent ?? 0);
+
+      if (profit > 0) {
+        // Idempotency: check if wallet tx already recorded for this ref
+        const { data: existingTx } = await supabase
+          .from("wallet_transactions").select("id").eq("ref", `profit-${ref}`).maybeSingle();
+
+        if (!existingTx) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("wallet_balance,total_sales")
+            .eq("id", agentId)
+            .maybeSingle();
+
+          const newBalance = Number(prof?.wallet_balance ?? 0) + profit;
+          const newTotalSales = Number(prof?.total_sales ?? 0) + paidAmount;
+
+          await supabase
+            .from("profiles")
+            .update({ wallet_balance: newBalance, total_sales: newTotalSales })
+            .eq("id", agentId);
+
+          await supabase.from("wallet_transactions").insert({
+            user_id: agentId,
+            type: "commission",
+            amount: profit,
+            description: `Commission — ${meta.productLabel ?? meta.product_label ?? "order"} for ${meta.recipient ?? "customer"}`,
+            ref: `profit-${ref}`,
+          });
+        }
+      }
+    }
   }
+
   return new Response("ok", { status: 200 });
 });
