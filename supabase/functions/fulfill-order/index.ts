@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id,ref,product_label,network,recipient,amount,status,retry_count,package_size")
+      .select("id,ref,product_label,network,recipient,amount,status,retry_count")
       .eq("ref", ref)
       .maybeSingle();
 
@@ -99,10 +99,8 @@ Deno.serve(async (req) => {
       return toJsonResponse(400, { error: "Unsupported or missing order network" });
     }
 
-    // Derive package size: prefer dedicated column, fall back to parsing product_label (e.g. "MTN 5GB" → "5GB")
-    const packageSize: string =
-      order.package_size ??
-      (order.product_label as string).replace(/^\S+\s+/, "").trim();
+    // Derive package size from product_label (e.g. "MTN 5GB" → "5GB", "Telecel 2GB" → "2GB")
+    const packageSize: string = (order.product_label as string).replace(/^\S+\s+/, "").trim();
 
     const payload = {
       networkCode,
