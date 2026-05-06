@@ -47,25 +47,42 @@ interface AuthCtx {
 const Ctx = createContext<AuthCtx | null>(null);
 
 function roleFromProfileLike(value: unknown): AppRole {
-  if (value === "admin" || value === "subagent") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "admin") return "admin";
+    if (normalized === "subagent") return "subagent";
+  }
   return "agent";
+}
+
+function toRoleOrNull(value: unknown): AppRole | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "admin") return "admin";
+  if (normalized === "subagent") return "subagent";
+  if (normalized === "agent") return "agent";
+  return null;
+}
+
+function pushRoleCandidate(out: Set<AppRole>, value: unknown) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => pushRoleCandidate(out, item));
+    return;
+  }
+  const parsed = toRoleOrNull(value);
+  if (parsed) out.add(parsed);
 }
 
 function extractAuthRoles(session: Session | null): AppRole[] {
   const authUser = session?.user;
   if (!authUser) return [];
 
-  const candidates: unknown[] = [
-    authUser.app_metadata?.role,
-    authUser.app_metadata?.user_role,
-    ...(Array.isArray(authUser.app_metadata?.roles) ? authUser.app_metadata.roles : []),
-    authUser.user_metadata?.role,
-  ];
-
   const unique = new Set<AppRole>();
-  for (const candidate of candidates) {
-    unique.add(roleFromProfileLike(candidate));
-  }
+  pushRoleCandidate(unique, authUser.app_metadata?.role);
+  pushRoleCandidate(unique, authUser.app_metadata?.user_role);
+  pushRoleCandidate(unique, authUser.app_metadata?.roles);
+  pushRoleCandidate(unique, authUser.user_metadata?.role);
+  pushRoleCandidate(unique, authUser.user_metadata?.user_role);
 
   return Array.from(unique);
 }
@@ -133,7 +150,11 @@ function mapSessionUserToAppUser(session: Session | null, profile: Profile | nul
   };
 }
 
-async function getOrCreateProfile(userId: string, metadata: Record<string, any> | undefined) {
+async function getOrCreateProfile(
+  userId: string,
+  userMetadata: Record<string, any> | undefined,
+  appMetadata: Record<string, any> | undefined,
+) {
   const { data: existing, error: readError } = await supabase
     .from("profiles")
     .select(
@@ -142,26 +163,49 @@ async function getOrCreateProfile(userId: string, metadata: Record<string, any> 
     .eq("id", userId)
     .maybeSingle();
 
-  if (!readError && existing) return mapProfileRow(existing);
+  if (readError) throw readError;
+  if (existing) return mapProfileRow(existing);
+
+  const roleFromAuth =
+    toRoleOrNull(appMetadata?.role) ??
+    toRoleOrNull(appMetadata?.user_role) ??
+    toRoleOrNull(userMetadata?.role) ??
+    toRoleOrNull(userMetadata?.user_role) ??
+    "agent";
 
   const payload = {
     id: userId,
-    role: roleFromProfileLike(metadata?.role),
-    name: typeof metadata?.name === "string" ? metadata.name : null,
-    phone: typeof metadata?.phone === "string" ? metadata.phone : null,
-    store_slug: typeof metadata?.store_slug === "string" ? metadata.store_slug : null,
+    role: roleFromAuth,
+    name: typeof userMetadata?.name === "string" ? userMetadata.name : null,
+    phone: typeof userMetadata?.phone === "string" ? userMetadata.phone : null,
+    store_slug: typeof userMetadata?.store_slug === "string" ? userMetadata.store_slug : null,
     active: true,
   };
 
   const { data: created, error: createError } = await supabase
     .from("profiles")
-    .upsert(payload, { onConflict: "id" })
+    .insert(payload)
     .select(
       "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
     )
     .maybeSingle();
 
-  if (createError) throw createError;
+  if (createError) {
+    if (createError.code === "23505") {
+      const { data: retryExisting, error: retryError } = await supabase
+        .from("profiles")
+        .select(
+          "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+        )
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (retryError) throw retryError;
+      if (retryExisting) return mapProfileRow(retryExisting);
+    }
+    throw createError;
+  }
+
   return created ? mapProfileRow(created) : null;
 }
 
@@ -178,7 +222,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const nextProfile = await getOrCreateProfile(authUser.id, authUser.user_metadata as Record<string, any> | undefined);
+      const nextProfile = await getOrCreateProfile(
+        authUser.id,
+        authUser.user_metadata as Record<string, any> | undefined,
+        authUser.app_metadata as Record<string, any> | undefined,
+      );
       setProfile(nextProfile);
     } catch {
       setProfile(null);
@@ -200,6 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const nextProfile = await getOrCreateProfile(
               nextSession.user.id,
               nextSession.user.user_metadata as Record<string, any> | undefined,
+              nextSession.user.app_metadata as Record<string, any> | undefined,
             );
             if (mounted) setProfile(nextProfile);
           } catch {
@@ -230,6 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const nextProfile = await getOrCreateProfile(
           nextSession.user.id,
           nextSession.user.user_metadata as Record<string, any> | undefined,
+          nextSession.user.app_metadata as Record<string, any> | undefined,
         );
         if (mounted) setProfile(nextProfile);
       } catch {
