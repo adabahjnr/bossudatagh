@@ -50,7 +50,9 @@ export default function WalletPage() {
       window.location.href = authUrl;
       return;
     } catch (e: any) {
-      toast.error(e?.message ?? "Unable to start top-up payment");
+      const msg = e?.context?.error ?? e?.message ?? "Unable to start top-up payment";
+      toast.error(msg);
+      console.error("[Paystack init error]", e);
     } finally {
       setPaying(false);
       setOpen(false);

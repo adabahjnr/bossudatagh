@@ -47,7 +47,9 @@ export default function ActivateAgent() {
       window.location.href = authUrl;
       return;
     } catch (e: any) {
-      toast.error(e?.message ?? "Payment failed. Please try again.");
+      const msg = e?.context?.error ?? e?.message ?? "Payment failed. Please try again.";
+      toast.error(msg);
+      console.error("[Paystack init error]", e);
     } finally {
       setPaying(false);
     }

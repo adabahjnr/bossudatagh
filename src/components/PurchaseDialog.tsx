@@ -99,7 +99,9 @@ export function PurchaseDialog({
       setOrderRef(order.ref);
       setStep("success");
     } catch (e: any) {
-      toast.error(e?.message ?? "Unable to start payment. Please try again.");
+      const msg = e?.context?.error ?? e?.message ?? "Unable to start payment. Please try again.";
+      toast.error(msg);
+      console.error("[Paystack init error]", e);
     } finally {
       setSubmitting(false);
     }
