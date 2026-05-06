@@ -13,7 +13,12 @@ export default function DashboardLayout() {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (roles.includes("admin")) return <Navigate to="/admin" replace />;
-  if (!currentUser) return null;
+  
+  // Use auth user directly if store hasn't synced yet
+  const displayUser = currentUser || (user && {
+    ...user,
+    role: roles.includes("admin") ? "admin" : roles.includes("subagent") ? "subagent" : "agent",
+  });
 
   return (
     <SidebarProvider>
@@ -23,8 +28,8 @@ export default function DashboardLayout() {
           <header className="h-14 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-20 flex items-center px-3 gap-3">
             <SidebarTrigger />
             <div className="flex-1 flex items-center gap-3">
-              <Badge variant={currentUser.role === "agent" ? "default" : "secondary"}>{currentUser.role.toUpperCase()}</Badge>
-              <span className="text-sm font-medium hidden sm:inline">{currentUser.name}</span>
+              <Badge variant={displayUser?.role === "agent" ? "default" : "secondary"}>{displayUser?.role.toUpperCase()}</Badge>
+              <span className="text-sm font-medium hidden sm:inline">{displayUser?.name}</span>
             </div>
             <ThemeToggle />
           </header>

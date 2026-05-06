@@ -26,6 +26,7 @@ export default function Login() {
     setSubmitting(false);
     if (error) return toast.error(error);
     toast.success("Welcome back");
+    nav("/dashboard", { replace: true });
   };
 
   const sendReset = async () => {
