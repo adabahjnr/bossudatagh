@@ -51,6 +51,35 @@ function roleFromProfileLike(value: unknown): AppRole {
   return "agent";
 }
 
+function extractAuthRoles(session: Session | null): AppRole[] {
+  const authUser = session?.user;
+  if (!authUser) return [];
+
+  const candidates: unknown[] = [
+    authUser.app_metadata?.role,
+    authUser.app_metadata?.user_role,
+    ...(Array.isArray(authUser.app_metadata?.roles) ? authUser.app_metadata.roles : []),
+    authUser.user_metadata?.role,
+  ];
+
+  const unique = new Set<AppRole>();
+  for (const candidate of candidates) {
+    unique.add(roleFromProfileLike(candidate));
+  }
+
+  return Array.from(unique);
+}
+
+function resolveRoles(session: Session | null, profile: Profile | null): AppRole[] {
+  const authRoles = extractAuthRoles(session);
+  const combined = new Set<AppRole>();
+
+  if (profile?.role) combined.add(roleFromProfileLike(profile.role));
+  authRoles.forEach((r) => combined.add(r));
+
+  return combined.size ? Array.from(combined) : [];
+}
+
 function mapProfileRow(row: any): Profile {
   return {
     id: row.id,
@@ -87,7 +116,7 @@ function mapSessionUserToAppUser(session: Session | null, profile: Profile | nul
     name: profile?.name || nameFromMeta || authUser.email?.split("@")[0] || "Agent",
     email: authUser.email ?? "",
     phone: profile?.phone || phoneFromMeta || "",
-    role: profile?.role ?? roleFromProfileLike(authUser.user_metadata?.role),
+    role: profile?.role ?? extractAuthRoles(session)[0] ?? "agent",
     walletBalance: Number(profile?.wallet_balance ?? 0),
     storeSlug: profile?.store_slug ?? undefined,
     storeTemplate: profile?.store_template ?? "neon",
@@ -217,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const user = useMemo(() => mapSessionUserToAppUser(session, profile), [session, profile]);
-  const roles: AppRole[] = user ? [roleFromProfileLike(user.role)] : [];
+  const roles: AppRole[] = useMemo(() => resolveRoles(session, profile), [session, profile]);
 
   const signUp: AuthCtx["signUp"] = async ({ email, password, name, phone, storeSlug }) => {
     try {
