@@ -37,12 +37,10 @@ async function resolveDataProviderConfig(supabase: ReturnType<typeof createClien
       .schema("private")
       .from("app_secrets")
       .select("secret_name,secret_value")
-      .in("secret_name", ["DATA_API_ENDPOINT", "DATA_API_TOKEN", "SWFT_API_TOKEN"]);
+      .in("secret_name", ["DATA_API_ENDPOINT", "DATA_API_TOKEN"]);
 
     const endpoint = data?.find((x) => x.secret_name === "DATA_API_ENDPOINT")?.secret_value;
-    const token =
-      data?.find((x) => x.secret_name === "DATA_API_TOKEN")?.secret_value ??
-      data?.find((x) => x.secret_name === "SWFT_API_TOKEN")?.secret_value;
+    const token = data?.find((x) => x.secret_name === "DATA_API_TOKEN")?.secret_value;
 
     if (endpoint && endpoint.length > 0) {
       return { endpoint, token: token ?? "" };
@@ -56,9 +54,9 @@ async function resolveDataProviderConfig(supabase: ReturnType<typeof createClien
   }
 
   const endpoint = Deno.env.get("DATA_API_ENDPOINT") ?? DEFAULT_PROVIDER_ENDPOINT;
-  const token = Deno.env.get("DATA_API_TOKEN") ?? Deno.env.get("SWFT_API_TOKEN") ?? "";
+  const token = Deno.env.get("DATA_API_TOKEN") ?? "";
   if (!endpoint) throw new Error("Missing DATA_API_ENDPOINT. Set it in private.app_secrets or edge secrets.");
-  if (!token) throw new Error("Missing DATA_API_TOKEN (or SWFT_API_TOKEN). Set it in private.app_secrets or edge secrets.");
+  if (!token) throw new Error("Missing DATA_API_TOKEN. Set it in private.app_secrets or edge secrets.");
 
   return { endpoint, token };
 }
