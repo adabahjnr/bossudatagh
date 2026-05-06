@@ -22,6 +22,8 @@ export interface Profile {
   total_referrals: number;
   badges: string[];
   active: boolean;
+  agent_activated: boolean;
+  activation_paid_at: string | null;
 }
 
 interface AuthCtx {
@@ -115,6 +117,8 @@ function mapProfileRow(row: any): Profile {
     total_referrals: Number(row.total_referrals ?? 0),
     badges: Array.isArray(row.badges) ? row.badges : [],
     active: row.active ?? true,
+    agent_activated: row.agent_activated ?? false,
+    activation_paid_at: row.activation_paid_at ?? null,
   };
 }
 
@@ -158,7 +162,7 @@ async function getOrCreateProfile(
   const { data: existing, error: readError } = await supabase
     .from("profiles")
     .select(
-      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
     )
     .eq("id", userId)
     .maybeSingle();
@@ -186,7 +190,7 @@ async function getOrCreateProfile(
     .from("profiles")
     .insert(payload)
     .select(
-      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
     )
     .maybeSingle();
 
@@ -195,7 +199,7 @@ async function getOrCreateProfile(
       const { data: retryExisting, error: retryError } = await supabase
         .from("profiles")
         .select(
-          "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+          "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
         )
         .eq("id", userId)
         .maybeSingle();
@@ -213,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const refreshProfile = async () => {
     const authUser = session?.user;
@@ -235,6 +240,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let refreshInterval: NodeJS.Timeout | null = null;
+    let visibilityHandler: (() => void) | null = null;
 
     const bootstrap = async () => {
       try {
@@ -262,7 +269,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    const refreshSession = async () => {
+      if (!mounted) return;
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error || !data.session) {
+          if (mounted) {
+            setSession(null);
+            setProfile(null);
+          }
+        } else if (mounted) {
+          setSession(data.session);
+          if (data.session.user) {
+            try {
+              const nextProfile = await getOrCreateProfile(
+                data.session.user.id,
+                data.session.user.user_metadata as Record<string, any> | undefined,
+                data.session.user.app_metadata as Record<string, any> | undefined,
+              );
+              if (mounted) setProfile(nextProfile);
+            } catch {
+              if (mounted) setProfile(null);
+            }
+          }
+        }
+      } catch {
+        if (mounted) {
+          setSession(null);
+          setProfile(null);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) return;
+      void refreshSession();
+    };
+
     void bootstrap();
+
+    refreshInterval = setInterval(() => {
+      void refreshSession();
+    }, 45000);
+
+    if (typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      visibilityHandler = handleVisibilityChange;
+    }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       if (!mounted) return;
@@ -274,7 +327,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (loadingTimeout) clearTimeout(loadingTimeout);
       setLoading(true);
+
+      const timeout = setTimeout(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      }, 15000);
+      setLoadingTimeout(timeout);
+
       try {
         const nextProfile = await getOrCreateProfile(
           nextSession.user.id,
@@ -285,12 +347,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         if (mounted) setProfile(null);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          if (timeout) clearTimeout(timeout);
+        }
       }
     });
 
     return () => {
       mounted = false;
+      if (refreshInterval) clearInterval(refreshInterval);
+      if (loadingTimeout) clearTimeout(loadingTimeout);
+      if (visibilityHandler && typeof window !== 'undefined') {
+        document.removeEventListener('visibilitychange', visibilityHandler);
+      }
       authListener.subscription.unsubscribe();
     };
   }, []);

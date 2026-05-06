@@ -33,6 +33,7 @@ export default function Login() {
     }
 
     let isAdmin = false;
+    let isUnactivatedAgent = false;
     try {
       const { data } = await supabase.auth.getSession();
       const authUser = data.session?.user;
@@ -49,10 +50,15 @@ export default function Login() {
         if (!isAdmin) {
           const { data: profileRow } = await supabase
             .from("profiles")
-            .select("role")
+            .select("role,agent_activated")
             .eq("id", authUser.id)
             .maybeSingle();
-          isAdmin = typeof profileRow?.role === "string" && profileRow.role.trim().toLowerCase() === "admin";
+          
+          if (profileRow?.role === "agent" && !profileRow?.agent_activated) {
+            isUnactivatedAgent = true;
+          } else {
+            isAdmin = typeof profileRow?.role === "string" && profileRow.role.trim().toLowerCase() === "admin";
+          }
         }
       }
     } catch {
@@ -61,7 +67,12 @@ export default function Login() {
 
     setSubmitting(false);
     toast.success("Welcome back");
-    nav(isAdmin ? "/admin" : "/dashboard", { replace: true });
+    
+    if (isUnactivatedAgent) {
+      nav("/activate-agent", { replace: true });
+    } else {
+      nav(isAdmin ? "/admin" : "/dashboard", { replace: true });
+    }
   };
 
   const sendReset = async () => {

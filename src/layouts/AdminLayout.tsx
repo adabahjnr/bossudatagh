@@ -29,9 +29,10 @@ export default function AdminLayout() {
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Loading admin dashboard...</p>
-          <p className="text-sm text-muted-foreground mt-1">Please wait a moment</p>
+          <p className="text-sm text-muted-foreground">Please wait a moment</p>
+          <p className="text-xs text-muted-foreground mt-2">If this takes longer than a few seconds, please refresh the page.</p>
         </div>
       </div>
     );

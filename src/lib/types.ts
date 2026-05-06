@@ -98,6 +98,7 @@ export interface SiteSettings {
   whatsappNumber: string;
   whatsappChannelLink?: string;
   agentFee: number;
+  agentActivationFee: number;
   minWithdrawal: number;
   maintenanceMode: boolean;
   maintenanceMessage: string;

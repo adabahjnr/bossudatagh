@@ -10,18 +10,26 @@ import { Badge } from "@/components/ui/badge";
 export default function DashboardLayout() {
   const { currentUser } = useStore();
   const { user, profile, roles, loading } = useAuth();
+
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Loading dashboard...</p>
-          <p className="text-sm text-muted-foreground mt-1">Please wait a moment</p>
+          <p className="text-sm text-muted-foreground">Please wait a moment</p>
+          <p className="text-xs text-muted-foreground mt-2">If this takes longer than a few seconds, please refresh the page.</p>
         </div>
       </div>
     );
   }
+
   if (!user) return <Navigate to="/login" replace />;
   if (roles.includes("admin")) return <Navigate to="/admin" replace />;
+
+  // Redirect unactivated agents to activation page
+  if (roles.includes("agent") && !profile?.agent_activated) {
+    return <Navigate to="/activate-agent" replace />;
+  }
 
   const role = roles.includes("subagent") ? "subagent" : "agent";
   const displayUser = currentUser ?? {

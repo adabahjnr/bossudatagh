@@ -17,6 +17,7 @@ import Home from "@/pages/Home";
 import Products from "@/pages/Products";
 import TrackOrder from "@/pages/TrackOrder";
 import BecomeAgent from "@/pages/BecomeAgent";
+import ActivateAgent from "@/pages/ActivateAgent";
 import Login from "@/pages/Login";
 import ResetPassword from "@/pages/ResetPassword";
 import PaymentSuccess from "@/pages/PaymentSuccess";
@@ -59,6 +60,7 @@ const App = () => (
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/payment-success" element={<PaymentSuccess />} />
                   </Route>
+                <Route path="/activate-agent" element={<ActivateAgent />} />
                 <Route path="/store/:slug" element={<MiniStore />} />
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Overview />} />

@@ -26,6 +26,7 @@ const defaultSiteSettings: SiteSettings = {
   whatsappNumber: "",
   whatsappChannelLink: "",
   agentFee: 50,
+  agentActivationFee: 50,
   minWithdrawal: 50,
   maintenanceMode: false,
   maintenanceMessage: "",

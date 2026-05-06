@@ -38,8 +38,8 @@ export default function BecomeAgent() {
       return;
     }
 
-    toast.success("Welcome aboard! Your store is live.");
-    nav("/dashboard");
+    toast.success("Account created! Complete your activation to start selling.");
+    nav("/activate-agent", { replace: true });
   };
 
   return (
