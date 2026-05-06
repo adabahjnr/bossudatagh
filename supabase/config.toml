@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.paystack-verify]
 verify_jwt = false
+
+[functions.fulfill-order]
+verify_jwt = false
