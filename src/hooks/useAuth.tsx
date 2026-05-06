@@ -160,43 +160,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     const bootstrap = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-      const nextSession = data.session;
-      setSession(nextSession);
-      if (nextSession?.user) {
-        try {
-          const nextProfile = await getOrCreateProfile(
-            nextSession.user.id,
-            nextSession.user.user_metadata as Record<string, any> | undefined,
-          );
-          if (mounted) setProfile(nextProfile);
-        } catch {
-          if (mounted) setProfile(null);
+        const nextSession = data.session;
+        setSession(nextSession);
+        if (nextSession?.user) {
+          try {
+            const nextProfile = await getOrCreateProfile(
+              nextSession.user.id,
+              nextSession.user.user_metadata as Record<string, any> | undefined,
+            );
+            if (mounted) setProfile(nextProfile);
+          } catch {
+            if (mounted) setProfile(null);
+          }
+        } else {
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      if (mounted) setLoading(false);
     };
 
     void bootstrap();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!mounted) return;
+
       setSession(nextSession);
       if (!nextSession?.user) {
         setProfile(null);
+        setLoading(false);
         return;
       }
+
+      setLoading(true);
       try {
         const nextProfile = await getOrCreateProfile(
           nextSession.user.id,
           nextSession.user.user_metadata as Record<string, any> | undefined,
         );
-        setProfile(nextProfile);
+        if (mounted) setProfile(nextProfile);
       } catch {
-        setProfile(null);
+        if (mounted) setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
     });
 
