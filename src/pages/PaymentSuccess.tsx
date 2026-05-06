@@ -6,17 +6,50 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Copy, Check } from "lucide-react";
 import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function PaymentSuccess() {
   const { state } = useStore();
   const [params] = useSearchParams();
   // Keep support for common reference query names.
   const reference = params.get("reference") || params.get("trxref") || params.get("ref");
+  const purpose = params.get("purpose") || "order";
   const [order, setOrder] = useState<Record<string, unknown> | null>(null);
   const [copied, setCopied] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     if (!reference) return;
+
+    const verify = async () => {
+      setVerifying(true);
+      const { data, error } = await supabase.functions.invoke("paystack-verify", {
+        body: { reference },
+      });
+
+      if (error) {
+        toast.error(error.message || "Payment verification failed");
+        setVerifying(false);
+        return;
+      }
+
+      if (data?.purpose === "agent_activation") {
+        toast.success("Agent account activated successfully");
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      if (data?.order) {
+        setOrder(data.order);
+      }
+      setVerifying(false);
+    };
+
+    void verify();
+  }, [reference]);
+
+  useEffect(() => {
+    if (!reference || purpose !== "order") return;
     const found = state.orders.find((o) => o.ref.toLowerCase() === reference.toLowerCase());
     if (found) {
       setOrder({
@@ -28,7 +61,7 @@ export default function PaymentSuccess() {
         created_at: found.createdAt,
       });
     }
-  }, [reference, state.orders]);
+  }, [reference, state.orders, purpose]);
 
   const copy = () => {
     navigator.clipboard.writeText(String(order?.ref ?? reference ?? ""));
@@ -45,6 +78,7 @@ export default function PaymentSuccess() {
             <CheckCircle2 className="h-10 w-10 text-success" />
           </div>
           <h1 className="text-2xl font-bold">Payment Successful!</h1>
+          {verifying && <p className="text-sm text-muted-foreground mt-2">Verifying payment...</p>}
           {order && (
             <p className="text-muted-foreground mt-1.5 text-sm">
               <span className="font-medium text-foreground">{String(order.product_label)}</span>{" "}

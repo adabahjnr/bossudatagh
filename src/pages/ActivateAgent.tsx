@@ -27,20 +27,25 @@ export default function ActivateAgent() {
 
     setPaying(true);
     try {
-      // In production, integrate with a real payment provider (Stripe, PayPal, etc.)
-      // For now, we'll mock the payment as approved
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          agent_activated: true,
-          activation_paid_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
+      const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+        body: {
+          purpose: "agent_activation",
+          amount: activationFee,
+          email: user.email,
+          callbackUrl: `${window.location.origin}/payment-success?purpose=agent_activation`,
+          metadata: {
+            userId: user.id,
+          },
+        },
+      });
 
       if (error) throw error;
 
-      toast.success("Payment successful! Your agent account is now active.");
-      nav("/dashboard", { replace: true });
+      const authUrl = data?.authorization_url as string | undefined;
+      if (!authUrl) throw new Error("Unable to initialize payment");
+
+      window.location.href = authUrl;
+      return;
     } catch (e: any) {
       toast.error(e?.message ?? "Payment failed. Please try again.");
     } finally {

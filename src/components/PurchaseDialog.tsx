@@ -8,6 +8,7 @@ import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { CheckerPackage, DataPackage } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
 
 type Item =
   | { kind: "data"; pkg: DataPackage; agentId?: string }
@@ -51,23 +52,57 @@ export function PurchaseDialog({
       toast.error("Enter a valid 10-digit Ghana phone number");
       return;
     }
+    if (pricing === "public" && !email) {
+      toast.error("Email is required for payment");
+      return;
+    }
     if (email && !/^\S+@\S+\.\S+$/.test(email)) {
       toast.error("Enter a valid email");
       return;
     }
     setSubmitting(true);
-    const order = placeOrder({
-      productLabel: label,
-      network: item.kind === "data" ? item.pkg.network : undefined,
-      recipient: phone,
-      email: email || undefined,
-      amount: price,
-      buyerType: "public",
-      agentId: item.agentId,
-    });
-    setOrderRef(order.ref);
-    setSubmitting(false);
-    setStep("success");
+    try {
+      if (pricing === "public") {
+        const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+          body: {
+            purpose: "order",
+            amount: price,
+            email,
+            callbackUrl: `${window.location.origin}/payment-success?purpose=order`,
+            metadata: {
+              productLabel: label,
+              network: item.kind === "data" ? item.pkg.network : null,
+              recipientPhone: phone,
+              buyerType: "public",
+              agentId: item.agentId ?? null,
+            },
+          },
+        });
+
+        if (error) throw error;
+        const authUrl = data?.authorization_url as string | undefined;
+        if (!authUrl) throw new Error("Unable to initialize payment");
+
+        window.location.href = authUrl;
+        return;
+      }
+
+      const order = placeOrder({
+        productLabel: label,
+        network: item.kind === "data" ? item.pkg.network : undefined,
+        recipient: phone,
+        email: email || undefined,
+        amount: price,
+        buyerType: "public",
+        agentId: item.agentId,
+      });
+      setOrderRef(order.ref);
+      setStep("success");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Unable to start payment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const copy = () => {
