@@ -12,6 +12,12 @@ import type {
   WithdrawalRequest,
 } from "./types";
 import { genApiKey, genRef } from "./format";
+import { sizeToMB } from "./format";
+
+const parseValidityDays = (v: string): number => {
+  const m = v.match(/(\d+)\s*day/i);
+  return m ? parseInt(m[1], 10) : 30;
+};
 
 const KEY = "geteasydata.state.v2";
 
@@ -233,8 +239,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ref: order.ref,
             product_label: order.productLabel,
             network: order.network ?? null,
-            recipient: order.recipient,
-            email: order.email ?? null,
+            recipient_phone: order.recipient,
             amount: order.amount,
             buyer_type: order.buyerType,
             agent_id: order.agentId ?? null,
@@ -243,12 +248,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .select("id,ref")
           .single();
         if (!error && data && order.agentId) {
-          await supabase.from("wallet_transactions").insert({
+          await supabase.from("transactions").insert({
             user_id: order.agentId,
-            type: "purchase",
-            amount: -order.amount,
+            order_id: data.id,
+            type: "agent_order",
+            amount: order.amount,
             description: order.productLabel,
-            ref: order.ref,
+            status: "completed",
           });
         }
 
@@ -324,8 +330,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const u = state.users.find((x) => x.id === userId);
       const newBal = (u?.walletBalance ?? 0) + amount;
       void supabase.from("profiles").update({ wallet_balance: newBal }).eq("id", userId);
-      void supabase.from("wallet_transactions").insert({
-        user_id: userId, type: "topup", amount, description: "Wallet top-up",
+      void supabase.from("transactions").insert({
+        user_id: userId, type: "wallet_topup", amount, description: "Wallet top-up", status: "completed",
       });
     },
 
@@ -348,8 +354,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         users: s.users.map((x) => (x.id === userId ? { ...x, walletBalance: newBal } : x)),
       }));
       void supabase.from("profiles").update({ wallet_balance: newBal }).eq("id", userId);
-      void supabase.from("wallet_transactions").insert({
-        user_id: userId, type: "adjustment", amount, description: "Admin credit",
+      void supabase.from("transactions").insert({
+        user_id: userId, type: "wallet_topup", amount, description: "Admin credit", status: "completed",
       });
     },
 
@@ -403,16 +409,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const isUuid = /^[0-9a-f-]{36}$/i.test(p.id);
       const row = {
         network: p.network,
-        size: p.size,
-        validity: p.validity,
+        label: p.size,
+        size_mb: sizeToMB(p.size),
+        validity_days: parseValidityDays(p.validity),
         price_public: p.pricePublic,
         price_agent: p.priceAgent,
         active: p.active,
       };
       if (isUuid) {
-        void supabase.from("data_packages").update(row).eq("id", p.id);
+        void supabase.from("data_bundles").update(row).eq("id", p.id);
       } else {
-        void supabase.from("data_packages").insert(row).select("id").single().then(({ data }) => {
+        void supabase.from("data_bundles").insert(row).select("id").single().then(({ data }) => {
           if (data?.id) {
             setStateRaw((s) => ({
               ...s,
@@ -425,7 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     deletePackage: (id) => {
       setState((s) => ({ ...s, packages: s.packages.filter((p) => p.id !== id) }));
-      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("data_packages").delete().eq("id", id);
+      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("data_bundles").delete().eq("id", id);
     },
 
     upsertChecker: (c) => {
@@ -481,21 +488,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       void (async () => {
         const { data: found } = await supabase
-          .from("agent_store_packages")
+          .from("agent_packages")
           .select("id")
           .eq("agent_id", agentId)
-          .eq("package_id", packageId)
+          .eq("bundle_id", packageId)
           .maybeSingle();
 
         if (found?.id) {
           await supabase
-            .from("agent_store_packages")
+            .from("agent_packages")
             .update({ sale_price: salePrice, active })
             .eq("id", found.id);
         } else {
-          await supabase.from("agent_store_packages").insert({
+          await supabase.from("agent_packages").insert({
             agent_id: agentId,
-            package_id: packageId,
+            bundle_id: packageId,
             sale_price: salePrice,
             active,
           });
@@ -512,10 +519,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
 
       void supabase
-        .from("agent_store_packages")
+        .from("agent_packages")
         .delete()
         .eq("agent_id", agentId)
-        .eq("package_id", packageId);
+        .eq("bundle_id", packageId);
     },
 
     setAgentStorePackageActive: (agentId, packageId, active) => {
@@ -528,10 +535,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }));
 
       void supabase
-        .from("agent_store_packages")
+        .from("agent_packages")
         .update({ active })
         .eq("agent_id", agentId)
-        .eq("package_id", packageId);
+        .eq("bundle_id", packageId);
     },
 
     createCampaign: ({ name, dataSize, network, totalCodes }) => {
@@ -549,8 +556,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
       setState((s) => ({ ...s, campaigns: [campaign, ...s.campaigns] }));
       void (async () => {
-        const { data } = await supabase.from("campaigns").insert({
-          name, data_size: dataSize, network, total_codes: totalCodes, redeemed: 0, active: true,
+        const { data } = await supabase.from("free_data_campaigns").insert({
+          name, data_size: dataSize, network, total_codes: totalCodes, redeemed_count: 0, active: true,
         }).select("id").single();
         if (data?.id) {
           await supabase.from("campaign_codes").insert(codes.map((c) => ({ campaign_id: data.id, code: c.code })));
@@ -565,7 +572,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     setCampaignActive: (id, active) => {
       setState((s) => ({ ...s, campaigns: s.campaigns.map((c) => (c.id === id ? { ...c, active } : c)) }));
-      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("campaigns").update({ active }).eq("id", id);
+      if (/^[0-9a-f-]{36}$/i.test(id)) void supabase.from("free_data_campaigns").update({ active }).eq("id", id);
     },
 
     redeemCode: (code, phone) => {
@@ -590,7 +597,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { ...s, campaigns, redemptionsByPhone };
       });
       // Also try server-side redemption (authoritative). Ignore mismatch silently.
-      void supabase.rpc("redeem_code", { _code: upper, _phone: phoneTrim });
+      void supabase.rpc("fn_redeem_campaign_code", { p_code: upper, p_phone: phoneTrim });
       return result;
     },
 

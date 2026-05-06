@@ -25,13 +25,13 @@ export function AdminOverview() {
   useEffect(() => {
     supabase
       .from("orders")
-      .select("id,ref,product_label,network,recipient,amount,status,created_at,agent_id")
+      .select("id,ref,product_label,network,recipient_phone,amount,status,created_at,agent_id")
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setOrders(
           (data ?? []).map((row: any) => ({
             id: row.id, ref: row.ref, productLabel: row.product_label,
-            network: row.network, recipient: row.recipient, amount: Number(row.amount),
+            network: row.network, recipient: row.recipient_phone, amount: Number(row.amount),
             status: row.status, createdAt: row.created_at, agentId: row.agent_id,
           }))
         );
