@@ -211,8 +211,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp: AuthCtx["signUp"] = async ({ email, password, name, phone, storeSlug }) => {
     try {
-      const slug = (storeSlug ?? name.toLowerCase().replace(/\s+/g, "-")).toLowerCase();
-      const { data, error } = await supabase.auth.signUp({
+      const slug = storeSlug ? storeSlug.toLowerCase() : null;
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -226,15 +226,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) return { error: error.message };
-
-      if (data.user) {
-        await getOrCreateProfile(data.user.id, {
-          name,
-          phone,
-          store_slug: slug,
-          role: "agent",
-        });
-      }
 
       return { error: null };
     } catch (e: any) {

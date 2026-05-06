@@ -13,7 +13,7 @@ create table if not exists public.profiles (
   role public.app_role not null default 'agent',
   name text,
   phone text,
-  store_slug text unique,
+  store_slug text,
   store_template text,
   store_logo text,
   store_brand text,
@@ -29,6 +29,8 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- Handle existing data for role and store_slug
+alter table public.profiles drop constraint if exists profiles_store_slug_key;
 alter table public.profiles drop constraint if exists profiles_role_check;
 
 alter table public.profiles
@@ -49,6 +51,7 @@ alter table public.profiles
 
 create index if not exists idx_profiles_role on public.profiles(role);
 create index if not exists idx_profiles_parent_agent_id on public.profiles(parent_agent_id);
+create unique index if not exists idx_profiles_store_slug_unique on public.profiles(store_slug) where store_slug is not null;
 
 alter table public.profiles enable row level security;
 
