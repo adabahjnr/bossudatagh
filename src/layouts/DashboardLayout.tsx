@@ -13,18 +13,16 @@ export default function DashboardLayout() {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (roles.includes("admin")) return <Navigate to="/admin" replace />;
-  
-  // Use auth user directly if store hasn't synced yet
-  const displayUser = currentUser || (user && profile && {
-    id: user.id,
-    name: profile.name || user.email?.split("@")[0] || "Agent",
-    email: user.email || "",
-    phone: profile.phone || "",
-    role: roles.includes("admin") ? "admin" : roles.includes("subagent") ? "subagent" : "agent",
-    walletBalance: Number(profile.wallet_balance ?? 0),
-  });
 
-  if (!displayUser) return null;
+  const role = roles.includes("subagent") ? "subagent" : "agent";
+  const displayUser = currentUser ?? {
+    id: user.id,
+    name: profile?.name || user.email?.split("@")[0] || "Agent",
+    email: user.email || "",
+    phone: profile?.phone || "",
+    role,
+    walletBalance: Number(profile?.wallet_balance ?? 0),
+  };
 
   return (
     <SidebarProvider>
