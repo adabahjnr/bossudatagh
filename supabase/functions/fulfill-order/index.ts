@@ -97,16 +97,15 @@ Deno.serve(async (req) => {
       return toJsonResponse(400, { error: "Unsupported or missing order network" });
     }
 
-    // Derive numeric data size in GB from product_label (e.g. "MTN 5GB" → 5, "Telecel 500MB" → 0.5)
+    // Extract package_size from product_label (e.g. "MTN 5GB" → "5GB", "Telecel 500MB" → "500MB")
     const sizeStr: string = (order.product_label as string).replace(/^\S+\s+/, "").trim();
-    const m = sizeStr.match(/([\d.]+)\s*(GB|MB)/i);
-    if (!m) return toJsonResponse(400, { error: `Cannot parse data size from "${order.product_label}"` });
-    const sizeNum = parseFloat(m[1]);
-    const amount = m[2].toUpperCase() === "MB" ? sizeNum / 1000 : sizeNum;
+    if (!sizeStr.match(/([\d.]+)\s*(GB|MB)/i)) {
+      return toJsonResponse(400, { error: `Cannot parse data size from "${order.product_label}"` });
+    }
 
     const payload = {
       networkCode,
-      amount,
+      package_size: sizeStr,
       customerNumber: order.recipient,
       request_id: `${order.ref}-${Date.now()}`,
     };
