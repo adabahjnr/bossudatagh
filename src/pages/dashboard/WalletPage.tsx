@@ -8,7 +8,7 @@ import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { initializePaystackPayment } from "@/lib/paystack";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function WalletPage() {
@@ -31,21 +31,13 @@ export default function WalletPage() {
     if (!user?.email) { toast.error("Your account email is required for payment"); return; }
     setPaying(true);
     try {
-      const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-        body: {
-          purpose: "wallet_topup",
-          amount: n,
-          email: user.email,
-          callbackUrl: `${window.location.origin}/payment-success?purpose=wallet_topup`,
-          metadata: {
-            userId: currentUser.id,
-          },
-        },
+      const authUrl = await initializePaystackPayment({
+        purpose: "wallet_topup",
+        amount: n,
+        email: user.email,
+        callbackUrl: `${window.location.origin}/payment-success?purpose=wallet_topup`,
+        metadata: { userId: currentUser.id },
       });
-
-      if (error) throw error;
-      const authUrl = data?.authorization_url as string | undefined;
-      if (!authUrl) throw new Error("Unable to initialize payment");
 
       window.location.href = authUrl;
       return;

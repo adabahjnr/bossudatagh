@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Copy, Check } from "lucide-react";
 import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { verifyPaystackPayment } from "@/lib/paystack";
 
 export default function PaymentSuccess() {
   const { state } = useStore();
@@ -23,12 +23,11 @@ export default function PaymentSuccess() {
 
     const verify = async () => {
       setVerifying(true);
-      const { data, error } = await supabase.functions.invoke("paystack-verify", {
-        body: { reference },
-      });
-
-      if (error) {
-        toast.error(error.message || "Payment verification failed");
+      let data: Record<string, unknown>;
+      try {
+        data = await verifyPaystackPayment(reference);
+      } catch (e: any) {
+        toast.error(e?.message || "Payment verification failed");
         setVerifying(false);
         return;
       }

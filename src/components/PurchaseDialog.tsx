@@ -8,7 +8,7 @@ import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { CheckerPackage, DataPackage } from "@/lib/types";
-import { supabase } from "@/integrations/supabase/client";
+import { initializePaystackPayment } from "@/lib/paystack";
 
 type Item =
   | { kind: "data"; pkg: DataPackage; agentId?: string }
@@ -63,25 +63,19 @@ export function PurchaseDialog({
     setSubmitting(true);
     try {
       if (pricing === "public") {
-        const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-          body: {
-            purpose: "order",
-            amount: price,
-            email,
-            callbackUrl: `${window.location.origin}/payment-success?purpose=order`,
-            metadata: {
-              productLabel: label,
-              network: item.kind === "data" ? item.pkg.network : null,
-              recipientPhone: phone,
-              buyerType: "public",
-              agentId: item.agentId ?? null,
-            },
+        const authUrl = await initializePaystackPayment({
+          purpose: "order",
+          amount: price,
+          email,
+          callbackUrl: `${window.location.origin}/payment-success?purpose=order`,
+          metadata: {
+            productLabel: label,
+            network: item.kind === "data" ? item.pkg.network : null,
+            recipientPhone: phone,
+            buyerType: "public",
+            agentId: item.agentId ?? null,
           },
         });
-
-        if (error) throw error;
-        const authUrl = data?.authorization_url as string | undefined;
-        if (!authUrl) throw new Error("Unable to initialize payment");
 
         window.location.href = authUrl;
         return;

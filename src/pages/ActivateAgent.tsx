@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
-import { supabase } from "@/integrations/supabase/client";
+import { initializePaystackPayment } from "@/lib/paystack";
 import { toast } from "sonner";
 import { CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { cedi } from "@/lib/format";
@@ -27,22 +27,13 @@ export default function ActivateAgent() {
 
     setPaying(true);
     try {
-      const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-        body: {
-          purpose: "agent_activation",
-          amount: activationFee,
-          email: user.email,
-          callbackUrl: `${window.location.origin}/payment-success?purpose=agent_activation`,
-          metadata: {
-            userId: user.id,
-          },
-        },
+      const authUrl = await initializePaystackPayment({
+        purpose: "agent_activation",
+        amount: activationFee,
+        email: user.email ?? "",
+        callbackUrl: `${window.location.origin}/payment-success?purpose=agent_activation`,
+        metadata: { userId: user.id },
       });
-
-      if (error) throw error;
-
-      const authUrl = data?.authorization_url as string | undefined;
-      if (!authUrl) throw new Error("Unable to initialize payment");
 
       window.location.href = authUrl;
       return;
