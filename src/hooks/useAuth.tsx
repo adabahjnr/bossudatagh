@@ -1,12 +1,13 @@
-import { createContext, useContext, type ReactNode } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { useStore } from "@/lib/store";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/lib/types";
+import type { Session } from "@supabase/supabase-js";
 
 export type AppRole = "admin" | "agent" | "subagent";
 
 export interface Profile {
   id: string;
+  role: AppRole;
   name: string;
   phone: string;
   store_slug: string | null;
@@ -24,7 +25,7 @@ export interface Profile {
 }
 
 interface AuthCtx {
-  session: null;
+  session: Session | null;
   user: User | null;
   profile: Profile | null;
   roles: AppRole[];
@@ -45,58 +46,173 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+function roleFromProfileLike(value: unknown): AppRole {
+  if (value === "admin" || value === "subagent") return value;
+  return "agent";
+}
 
-const authClient =
-  SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
-    : null;
-
-function userToProfile(u: User): Profile {
+function mapProfileRow(row: any): Profile {
   return {
-    id: u.id,
-    name: u.name,
-    phone: u.phone,
-    store_slug: u.storeSlug ?? null,
-    store_template: (u.storeTemplate as Profile["store_template"]) ?? null,
-    store_logo: u.storeLogo ?? null,
-    store_brand: u.storeBrand ?? null,
-    parent_agent_id: u.parentAgentId ?? null,
-    api_key: u.apiKey ?? null,
-    referral_code: u.referralCode ?? null,
-    wallet_balance: u.walletBalance,
-    total_sales: u.totalSales ?? 0,
-    total_referrals: u.totalReferrals ?? 0,
-    badges: u.badges ?? [],
-    active: u.active,
+    id: row.id,
+    role: roleFromProfileLike(row.role),
+    name: row.name ?? "",
+    phone: row.phone ?? "",
+    store_slug: row.store_slug ?? null,
+    store_template: row.store_template ?? null,
+    store_logo: row.store_logo ?? null,
+    store_brand: row.store_brand ?? null,
+    parent_agent_id: row.parent_agent_id ?? null,
+    api_key: row.api_key ?? null,
+    referral_code: row.referral_code ?? null,
+    wallet_balance: Number(row.wallet_balance ?? 0),
+    total_sales: Number(row.total_sales ?? 0),
+    total_referrals: Number(row.total_referrals ?? 0),
+    badges: Array.isArray(row.badges) ? row.badges : [],
+    active: row.active ?? true,
   };
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { state, setState, currentUser, signupAgent, login, logout } = useStore();
+function mapSessionUserToAppUser(session: Session | null, profile: Profile | null): User | null {
+  const authUser = session?.user;
+  if (!authUser) return null;
 
-  const roles: AppRole[] = currentUser
-    ? currentUser.role === "admin"
-      ? ["admin"]
-      : currentUser.role === "subagent"
-        ? ["subagent"]
-        : ["agent"]
-    : [];
+  const nameFromMeta =
+    typeof authUser.user_metadata?.name === "string" ? authUser.user_metadata.name : undefined;
+  const phoneFromMeta =
+    typeof authUser.user_metadata?.phone === "string" ? authUser.user_metadata.phone : undefined;
+  const createdAt = authUser.created_at ?? new Date().toISOString();
+
+  return {
+    id: authUser.id,
+    name: profile?.name || nameFromMeta || authUser.email?.split("@")[0] || "Agent",
+    email: authUser.email ?? "",
+    phone: profile?.phone || phoneFromMeta || "",
+    role: profile?.role ?? roleFromProfileLike(authUser.user_metadata?.role),
+    walletBalance: Number(profile?.wallet_balance ?? 0),
+    storeSlug: profile?.store_slug ?? undefined,
+    storeTemplate: profile?.store_template ?? "neon",
+    storeLogo: profile?.store_logo ?? undefined,
+    storeBrand: profile?.store_brand ?? undefined,
+    parentAgentId: profile?.parent_agent_id ?? undefined,
+    apiKey: profile?.api_key ?? undefined,
+    referralCode: profile?.referral_code ?? undefined,
+    totalSales: Number(profile?.total_sales ?? 0),
+    totalReferrals: Number(profile?.total_referrals ?? 0),
+    badges: profile?.badges ?? [],
+    createdAt,
+    active: profile?.active ?? true,
+  };
+}
+
+async function getOrCreateProfile(userId: string, metadata: Record<string, any> | undefined) {
+  const { data: existing, error: readError } = await supabase
+    .from("profiles")
+    .select(
+      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!readError && existing) return mapProfileRow(existing);
+
+  const payload = {
+    id: userId,
+    role: roleFromProfileLike(metadata?.role),
+    name: typeof metadata?.name === "string" ? metadata.name : null,
+    phone: typeof metadata?.phone === "string" ? metadata.phone : null,
+    store_slug: typeof metadata?.store_slug === "string" ? metadata.store_slug : null,
+    active: true,
+  };
+
+  const { data: created, error: createError } = await supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "id" })
+    .select(
+      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active",
+    )
+    .maybeSingle();
+
+  if (createError) throw createError;
+  return created ? mapProfileRow(created) : null;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refreshProfile = async () => {
+    const authUser = session?.user;
+    if (!authUser) {
+      setProfile(null);
+      return;
+    }
+
+    try {
+      const nextProfile = await getOrCreateProfile(authUser.id, authUser.user_metadata as Record<string, any> | undefined);
+      setProfile(nextProfile);
+    } catch {
+      setProfile(null);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      const nextSession = data.session;
+      setSession(nextSession);
+      if (nextSession?.user) {
+        try {
+          const nextProfile = await getOrCreateProfile(
+            nextSession.user.id,
+            nextSession.user.user_metadata as Record<string, any> | undefined,
+          );
+          if (mounted) setProfile(nextProfile);
+        } catch {
+          if (mounted) setProfile(null);
+        }
+      } else {
+        setProfile(null);
+      }
+      if (mounted) setLoading(false);
+    };
+
+    void bootstrap();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      setSession(nextSession);
+      if (!nextSession?.user) {
+        setProfile(null);
+        return;
+      }
+      try {
+        const nextProfile = await getOrCreateProfile(
+          nextSession.user.id,
+          nextSession.user.user_metadata as Record<string, any> | undefined,
+        );
+        setProfile(nextProfile);
+      } catch {
+        setProfile(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const user = useMemo(() => mapSessionUserToAppUser(session, profile), [session, profile]);
+  const roles: AppRole[] = user ? [roleFromProfileLike(user.role)] : [];
 
   const signUp: AuthCtx["signUp"] = async ({ email, password, name, phone, storeSlug }) => {
     try {
-      if (!authClient) {
-        return { error: "Supabase Auth is not configured. Check VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY." };
-      }
-
-      const existing = state.users.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase() || u.phone === phone,
-      );
-      if (existing) return { error: "An account with that email or phone already exists." };
-
-      const slug = storeSlug ?? name.toLowerCase().replace(/\s+/g, "-");
-      const { data, error } = await authClient.auth.signUp({
+      const slug = (storeSlug ?? name.toLowerCase().replace(/\s+/g, "-")).toLowerCase();
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -105,12 +221,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name,
             phone,
             store_slug: slug,
+            role: "agent",
           },
         },
       });
+
       if (error) return { error: error.message };
 
-      signupAgent({ id: data.user?.id, name, email, phone, password, storeSlug: slug });
+      if (data.user) {
+        await getOrCreateProfile(data.user.id, {
+          name,
+          phone,
+          store_slug: slug,
+          role: "agent",
+        });
+      }
+
       return { error: null };
     } catch (e: any) {
       return { error: e?.message ?? "Sign up failed" };
@@ -118,107 +244,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn: AuthCtx["signIn"] = async (email, password) => {
-    if (authClient) {
-      const { data, error } = await authClient.auth.signInWithPassword({ email, password });
-      if (error) return { error: error.message };
-
-      const signedIn = data.user;
-      if (signedIn) {
-        const metadata = (signedIn.user_metadata ?? {}) as {
-          name?: string;
-          phone?: string;
-          store_slug?: string;
-        };
-
-        const { data: roleRows } = await authClient
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", signedIn.id);
-
-        const roles = (roleRows ?? []).map((r: any) => String(r.role));
-        const mappedRole: User["role"] = roles.includes("admin")
-          ? "admin"
-          : roles.includes("subagent")
-            ? "subagent"
-            : "agent";
-
-        setState((s) => {
-          const existing = s.users.find((u) => u.id === signedIn.id || u.email.toLowerCase() === (signedIn.email ?? "").toLowerCase());
-          if (existing) {
-            return {
-              ...s,
-              users: s.users.map((u) =>
-                u.id === existing.id
-                  ? {
-                      ...u,
-                      id: signedIn.id,
-                      email: signedIn.email ?? u.email,
-                      name: metadata.name ?? u.name,
-                      phone: metadata.phone ?? u.phone,
-                      storeSlug: metadata.store_slug ?? u.storeSlug,
-                      role: mappedRole,
-                    }
-                  : u,
-              ),
-              currentUserId: signedIn.id,
-            };
-          }
-
-          const newUser: User = {
-            id: signedIn.id,
-            name: metadata.name ?? (signedIn.email?.split("@")[0] ?? "Agent"),
-            email: signedIn.email ?? email,
-            phone: metadata.phone ?? "",
-            role: mappedRole,
-            walletBalance: 0,
-            storeSlug: metadata.store_slug,
-            storeTemplate: "neon",
-            storeBrand: (metadata.name ?? "Agent") + "'s Data Store",
-            totalSales: 0,
-            totalReferrals: 0,
-            badges: [],
-            createdAt: new Date().toISOString(),
-            active: true,
-          };
-          return { ...s, users: [...s.users, newUser], currentUserId: signedIn.id };
-        });
-      }
-      return { error: null };
-    }
-
-    const u = login(email);
-    if (!u) return { error: "No account found with that email or phone." };
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
     return { error: null };
   };
 
   const signOut: AuthCtx["signOut"] = async () => {
-    if (authClient) {
-      await authClient.auth.signOut();
-    }
-    logout();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   const resetPassword: AuthCtx["resetPassword"] = async (email) => {
-    if (!authClient) {
-      return { error: "Supabase Auth is not configured." };
-    }
-    const { error } = await authClient.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     return { error: error?.message ?? null };
   };
 
-  const refreshProfile: AuthCtx["refreshProfile"] = async () => {};
-
   return (
     <Ctx.Provider
       value={{
-        session: null,
-        user: currentUser,
-        profile: currentUser ? userToProfile(currentUser) : null,
+        session,
+        user,
+        profile,
         roles,
-        isAdmin: currentUser?.role === "admin",
-        loading: false,
+        isAdmin: roles.includes("admin"),
+        loading,
         signUp,
         signIn,
         signOut,

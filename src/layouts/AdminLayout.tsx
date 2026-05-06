@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -21,10 +22,12 @@ const items = [
 ];
 
 export default function AdminLayout() {
-  const { currentUser, logout, state } = useStore();
+  const { currentUser, state } = useStore();
+  const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  if (!currentUser || currentUser.role !== "admin") return <Navigate to="/login" replace />;
+  if (loading) return null;
+  if (!user || !roles.includes("admin")) return <Navigate to="/login" replace />;
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -39,7 +42,7 @@ export default function AdminLayout() {
           ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => { logout(); nav("/"); }}>
+          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={async () => { await signOut(); nav("/"); }}>
             <LogOut className="h-4 w-4 mr-2" /> Sign out
           </Button>
         </div>

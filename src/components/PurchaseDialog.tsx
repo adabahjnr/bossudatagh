@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store";
 import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +24,7 @@ export function PurchaseDialog({
   onOpenChange: (o: boolean) => void;
   pricing?: "public" | "agent";
 }) {
+  const { placeOrder } = useStore();
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"form" | "success">("form");
@@ -50,31 +51,23 @@ export function PurchaseDialog({
       toast.error("Enter a valid 10-digit Ghana phone number");
       return;
     }
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-      toast.error("Enter a valid email — Paystack requires it for the receipt");
+    if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+      toast.error("Enter a valid email");
       return;
     }
     setSubmitting(true);
-    const { data, error } = await supabase.functions.invoke("paystack-initialize", {
-      body: {
-        email,
-        amount: price,
-        productLabel: label,
-        network: item.kind === "data" ? item.pkg.network : null,
-        recipient: phone,
-        agentId: item.agentId ?? null,
-        packageId: item.pkg.id,
-        buyerType: item.agentId ? "agent" : "public",
-      },
+    const order = placeOrder({
+      productLabel: label,
+      network: item.kind === "data" ? item.pkg.network : undefined,
+      recipient: phone,
+      email: email || undefined,
+      amount: price,
+      buyerType: "public",
+      agentId: item.agentId,
     });
-    if (error || !data?.authorization_url) {
-      setSubmitting(false);
-      toast.error(error?.message ?? data?.error ?? "Could not start payment");
-      return;
-    }
-    setOrderRef(data.ref);
-    // Redirect to Paystack hosted checkout
-    window.location.href = data.authorization_url;
+    setOrderRef(order.ref);
+    setSubmitting(false);
+    setStep("success");
   };
 
   const copy = () => {
@@ -107,7 +100,7 @@ export function PurchaseDialog({
                 <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               </div>
               <Button className="w-full bg-gradient-primary" disabled={submitting} onClick={submit}>
-                {submitting ? "Processing…" : `Pay ${cedi(price)}`}
+                {submitting ? "Placing order..." : `Place order (${cedi(price)})`}
               </Button>
             </div>
           </>

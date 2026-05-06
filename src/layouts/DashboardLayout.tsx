@@ -3,13 +3,17 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { Badge } from "@/components/ui/badge";
 
 export default function DashboardLayout() {
   const { currentUser } = useStore();
-  if (!currentUser) return <Navigate to="/login" replace />;
-  if (currentUser.role === "admin") return <Navigate to="/admin" replace />;
+  const { user, roles, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles.includes("admin")) return <Navigate to="/admin" replace />;
+  if (!currentUser) return null;
 
   return (
     <SidebarProvider>

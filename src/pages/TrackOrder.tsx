@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store";
 import { cedi, shortDate } from "@/lib/format";
 import { CheckCircle2, Loader2, XCircle, RotateCcw } from "lucide-react";
 import type { Order } from "@/lib/types";
@@ -17,6 +17,7 @@ const statusMap = {
 } as const;
 
 export default function TrackOrder() {
+  const { state } = useStore();
   const [ref, setRef] = useState("");
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState<Order | null | "notfound">(null);
@@ -25,12 +26,9 @@ export default function TrackOrder() {
   const search = async () => {
     if (!ref.trim() || !phone.trim()) return;
     setSearching(true);
-    const { data } = await supabase
-      .from("orders")
-      .select("*")
-      .ilike("ref", ref.trim())
-      .eq("recipient", phone.trim())
-      .maybeSingle();
+    const data = state.orders.find(
+      (o) => o.ref.toLowerCase() === ref.trim().toLowerCase() && o.recipient === phone.trim(),
+    );
     setSearching(false);
     if (!data) {
       setResult("notfound");
@@ -39,15 +37,15 @@ export default function TrackOrder() {
     setResult({
       id: data.id,
       ref: data.ref,
-      productLabel: data.product_label,
+      productLabel: data.productLabel,
       network: data.network ?? undefined,
       recipient: data.recipient,
       email: data.email ?? undefined,
       amount: Number(data.amount),
       status: data.status,
-      createdAt: data.created_at,
-      buyerType: data.buyer_type,
-      agentId: data.agent_id ?? undefined,
+      createdAt: data.createdAt,
+      buyerType: data.buyerType,
+      agentId: data.agentId ?? undefined,
     });
   };
 

@@ -1,49 +1,34 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useStore } from "@/lib/store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, Loader2, Copy, Check } from "lucide-react";
+import { CheckCircle2, Copy, Check } from "lucide-react";
 import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 
 export default function PaymentSuccess() {
+  const { state } = useStore();
   const [params] = useSearchParams();
-  // Paystack appends ?reference= and ?trxref= on redirect; we also support ?ref= for internal links
+  // Keep support for common reference query names.
   const reference = params.get("reference") || params.get("trxref") || params.get("ref");
-
-  const [pageState, setPageState] = useState<"loading" | "success" | "failed">("loading");
   const [order, setOrder] = useState<Record<string, unknown> | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!reference) {
-      setPageState("failed");
-      return;
-    }
-
-    (async () => {
-      // 1. Verify payment is genuine via Paystack
-      const { data: vData, error: vErr } = await supabase.functions.invoke("paystack-verify", {
-        body: { reference },
+    if (!reference) return;
+    const found = state.orders.find((o) => o.ref.toLowerCase() === reference.toLowerCase());
+    if (found) {
+      setOrder({
+        ref: found.ref,
+        product_label: found.productLabel,
+        recipient: found.recipient,
+        amount: found.amount,
+        status: found.status,
+        created_at: found.createdAt,
       });
-
-      if (vErr || !vData?.ok) {
-        setPageState("failed");
-        return;
-      }
-
-      // 2. Fetch the order from DB by ref
-      const { data: orderData } = await supabase
-        .from("orders")
-        .select("*")
-        .ilike("ref", reference)
-        .maybeSingle();
-
-      setOrder(orderData ?? null);
-      setPageState("success");
-    })();
-  }, [reference]);
+    }
+  }, [reference, state.orders]);
 
   const copy = () => {
     navigator.clipboard.writeText(String(order?.ref ?? reference ?? ""));
@@ -51,38 +36,6 @@ export default function PaymentSuccess() {
     toast.success("Reference copied");
     setTimeout(() => setCopied(false), 2000);
   };
-
-  if (pageState === "loading") {
-    return (
-      <div className="min-h-screen grid place-items-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground">Verifying your payment…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (pageState === "failed") {
-    return (
-      <div className="min-h-screen grid place-items-center p-6">
-        <Card className="p-8 max-w-md w-full text-center shadow-elegant">
-          <XCircle className="h-16 w-16 mx-auto text-destructive mb-4" />
-          <h1 className="text-2xl font-bold">Payment Not Verified</h1>
-          <p className="text-muted-foreground mt-3 text-sm">
-            We could not verify your payment. If you were charged, please use the reference below to track your order or contact support.
-          </p>
-          {reference && (
-            <div className="mt-4 rounded-lg bg-muted p-3 font-mono text-sm break-all">{reference}</div>
-          )}
-          <div className="mt-6 flex gap-3 justify-center">
-            <Button asChild variant="outline"><Link to="/track">Track Order</Link></Button>
-            <Button asChild><Link to="/products">Buy Again</Link></Button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen grid place-items-center p-6 bg-gradient-to-br from-background to-muted/30">
@@ -141,6 +94,12 @@ export default function PaymentSuccess() {
                 Placed {shortDate(String(order.created_at))}
               </p>
             )}
+          </div>
+        )}
+
+        {!order && (
+          <div className="mt-6 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
+            Reference: <span className="font-mono font-semibold text-foreground">{reference ?? "N/A"}</span>
           </div>
         )}
 

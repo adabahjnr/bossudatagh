@@ -108,85 +108,9 @@ export function AdminOverview() {
 
 /* ================= ORDERS ================= */
 export function AdminOrders() {
-  const { state, retryOrderFulfillment } = useStore();
+  const { state } = useStore();
   const [filter, setFilter] = useState<"all" | OrderStatus>("all");
-  const [orders, setOrders] = useState<Order[]>(state.orders);
-  const [loading, setLoading] = useState(false);
-  const [retryingRef, setRetryingRef] = useState<string | null>(null);
-  const [sessionRecovered, setSessionRecovered] = useState(false);
-
-  const isJwtExpiredError = (message?: string) => {
-    const text = String(message ?? "").toLowerCase();
-    return text.includes("jwt") && text.includes("expired");
-  };
-
-  const loadOrders = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      if (isJwtExpiredError(error.message) && !sessionRecovered) {
-        // Clear stale token and retry once; read policy allows anon order lookup.
-        await supabase.auth.signOut();
-        setSessionRecovered(true);
-        await loadOrders();
-        return;
-      }
-      setLoading(false);
-      toast.error(error.message || "Failed to load orders");
-      return;
-    }
-
-    if (sessionRecovered) setSessionRecovered(false);
-
-    setOrders((data ?? []).map((row: any) => ({
-      id: row.id,
-      ref: row.ref,
-      productLabel: row.product_label,
-      network: row.network ?? undefined,
-      recipient: row.recipient,
-      email: row.email ?? undefined,
-      amount: Number(row.amount),
-      status: row.status,
-      createdAt: row.created_at,
-      buyerType: row.buyer_type,
-      agentId: row.agent_id ?? undefined,
-      fulfillmentErrorCode: row.fulfillment_error_code ?? undefined,
-      fulfillmentErrorMessage: row.fulfillment_error_message ?? undefined,
-    })));
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    void loadOrders();
-  }, []);
-
-  const list = orders.filter((o) => filter === "all" || o.status === filter);
-
-  const retry = async (o: Order) => {
-    setRetryingRef(o.ref);
-    const out = await retryOrderFulfillment(o.ref);
-    setRetryingRef(null);
-    if (!out.ok) {
-      toast.error(out.error ?? "Retry failed");
-      return;
-    }
-    toast.success("Retry sent to provider API");
-    await loadOrders();
-  };
-
-  const refund = async (o: Order) => {
-    const { error } = await supabase.from("orders").update({ status: "refunded" }).eq("id", o.id);
-    if (error) {
-      toast.error(error.message || "Refund update failed");
-      return;
-    }
-    toast.success("Refunded");
-    await loadOrders();
-  };
+  const list = state.orders.filter((o) => filter === "all" || o.status === filter);
 
   return (
     <div className="space-y-4">
@@ -209,11 +133,6 @@ export function AdminOrders() {
             <tr><th className="text-left p-3">Ref</th><th className="text-left p-3">Product</th><th className="text-left p-3">Recipient</th><th className="text-left p-3">Amount</th><th className="text-left p-3">Status</th><th className="text-left p-3">Date</th><th className="text-right p-3">Actions</th></tr>
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td className="p-3 text-muted-foreground" colSpan={7}>Loading orders...</td>
-              </tr>
-            )}
             {list.map((o: Order) => (
               <tr key={o.id} className="border-t border-border">
                 <td className="p-3 font-mono text-xs">{o.ref}</td>
@@ -222,14 +141,7 @@ export function AdminOrders() {
                 <td className="p-3 font-medium">{cedi(o.amount)}</td>
                 <td className="p-3"><Badge variant={o.status === "delivered" ? "default" : o.status === "failed" ? "destructive" : "secondary"}>{o.status}</Badge></td>
                 <td className="p-3 text-xs text-muted-foreground">{shortDate(o.createdAt)}</td>
-                <td className="p-3 text-right space-x-1">
-                  {o.status === "failed" && o.fulfillmentErrorCode === "PROVIDER_INSUFFICIENT_BALANCE" && (
-                    <Button size="sm" variant="outline" disabled={retryingRef === o.ref} onClick={() => void retry(o)}>
-                      {retryingRef === o.ref ? "Retrying..." : "Retry"}
-                    </Button>
-                  )}
-                  {o.status !== "refunded" && o.status !== "processing" && <Button size="sm" variant="ghost" onClick={() => void refund(o)}>Refund</Button>}
-                </td>
+                <td className="p-3 text-right text-xs text-muted-foreground">No actions</td>
               </tr>
             ))}
           </tbody>
