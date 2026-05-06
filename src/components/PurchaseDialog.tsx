@@ -8,7 +8,7 @@ import { cedi } from "@/lib/format";
 import { Check, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { CheckerPackage, DataPackage } from "@/lib/types";
-import { initializePaystackPayment } from "@/lib/paystack";
+import { initializePaystackPayment, redirectToPayment } from "@/lib/paystack";
 
 type Item =
   | { kind: "data"; pkg: DataPackage; agentId?: string }
@@ -77,7 +77,7 @@ export function PurchaseDialog({
           },
         });
 
-        window.location.href = authUrl;
+        redirectToPayment(authUrl);
         return;
       }
 

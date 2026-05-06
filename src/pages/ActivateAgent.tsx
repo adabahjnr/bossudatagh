@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useStore } from "@/lib/store";
-import { initializePaystackPayment } from "@/lib/paystack";
+import { initializePaystackPayment, redirectToPayment } from "@/lib/paystack";
 import { toast } from "sonner";
 import { CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { cedi } from "@/lib/format";
@@ -35,7 +35,7 @@ export default function ActivateAgent() {
         metadata: { userId: user.id },
       });
 
-      window.location.href = authUrl;
+      redirectToPayment(authUrl);
       return;
     } catch (e: any) {
       const msg = e?.context?.error ?? e?.message ?? "Payment failed. Please try again.";

@@ -8,7 +8,7 @@ import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import { initializePaystackPayment } from "@/lib/paystack";
+import { initializePaystackPayment, redirectToPayment } from "@/lib/paystack";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function WalletPage() {
@@ -39,7 +39,7 @@ export default function WalletPage() {
         metadata: { userId: currentUser.id },
       });
 
-      window.location.href = authUrl;
+      redirectToPayment(authUrl);
       return;
     } catch (e: any) {
       const msg = e?.context?.error ?? e?.message ?? "Unable to start top-up payment";

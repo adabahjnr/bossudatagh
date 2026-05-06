@@ -1,7 +1,15 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const PROJECT_REF = "ukdjfzllnlykwjqknqqe";
+const FALLBACK_SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
+const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const SUPABASE_URL =
+  ENV_SUPABASE_URL && ENV_SUPABASE_URL.includes(`${PROJECT_REF}.supabase.co`)
+    ? ENV_SUPABASE_URL
+    : FALLBACK_SUPABASE_URL;
+
 const SUPABASE_ANON_KEY =
-  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) ||
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string);
+  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined) ||
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrZGpmemxsbmx5a3dqcWtucXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTkzNDMsImV4cCI6MjA5MzEzNTM0M30.UbF8nscWMGvHFWWkW3cBjVmjvdRjHJuUbXZucsBlZ4c";
 
 type Purpose = "order" | "agent_activation" | "wallet_topup";
 
@@ -47,6 +55,13 @@ export async function initializePaystackPayment(input: InitializePaymentInput): 
   }
 
   return authUrl;
+}
+
+export function redirectToPayment(authUrl: string) {
+  if (!authUrl || typeof authUrl !== "string") {
+    throw new Error("Invalid payment redirect URL");
+  }
+  window.location.assign(authUrl);
 }
 
 export async function verifyPaystackPayment(reference: string): Promise<Record<string, unknown>> {
