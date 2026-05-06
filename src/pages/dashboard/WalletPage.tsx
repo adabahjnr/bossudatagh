@@ -8,9 +8,12 @@ import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function WalletPage() {
-  const { currentUser, state, topUpWallet } = useStore();
+  const { currentUser, state } = useStore();
+  const { user } = useAuth();
   const [amount, setAmount] = useState("");
   const [open, setOpen] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -25,12 +28,34 @@ export default function WalletPage() {
   const onTopUp = async () => {
     const n = parseFloat(amount);
     if (!n || n < 5) { toast.error("Minimum top-up is ₵5"); return; }
+    if (!user?.email) { toast.error("Your account email is required for payment"); return; }
     setPaying(true);
-    topUpWallet(currentUser.id, n);
-    setPaying(false);
-    setOpen(false);
-    setAmount("");
-    toast.success("Wallet funded successfully");
+    try {
+      const { data, error } = await supabase.functions.invoke("paystack-initialize", {
+        body: {
+          purpose: "wallet_topup",
+          amount: n,
+          email: user.email,
+          callbackUrl: `${window.location.origin}/payment-success?purpose=wallet_topup`,
+          metadata: {
+            userId: currentUser.id,
+          },
+        },
+      });
+
+      if (error) throw error;
+      const authUrl = data?.authorization_url as string | undefined;
+      if (!authUrl) throw new Error("Unable to initialize payment");
+
+      window.location.href = authUrl;
+      return;
+    } catch (e: any) {
+      toast.error(e?.message ?? "Unable to start top-up payment");
+    } finally {
+      setPaying(false);
+      setOpen(false);
+      setAmount("");
+    }
   };
 
   const myOrders = state.orders.filter((o) => o.agentId === currentUser.id);

@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 type VerifyMeta = {
-  purpose?: "order" | "agent_activation";
+  purpose?: "order" | "agent_activation" | "wallet_topup";
   userId?: string;
   productLabel?: string;
   network?: string | null;
@@ -94,6 +94,62 @@ Deno.serve(async (req) => {
       }
 
       return new Response(JSON.stringify({ ok: true, purpose: "agent_activation" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (purpose === "wallet_topup") {
+      const userId = metadata.userId;
+      if (!userId) throw new Error("Wallet top-up payment is missing userId metadata");
+
+      const { data: existingTopup } = await supabaseAdmin
+        .from("transactions")
+        .select("id")
+        .eq("type", "wallet_topup")
+        .eq("external_ref", reference)
+        .maybeSingle();
+
+      if (!existingTopup) {
+        const paidAmount = Number(tx.amount ?? 0) / 100;
+
+        const { data: profileRow, error: profileError } = await supabaseAdmin
+          .from("profiles")
+          .select("wallet_balance")
+          .eq("id", userId)
+          .single();
+
+        if (profileError) throw profileError;
+
+        const balanceBefore = Number(profileRow?.wallet_balance ?? 0);
+        const balanceAfter = balanceBefore + paidAmount;
+
+        const { error: updateError } = await supabaseAdmin
+          .from("profiles")
+          .update({ wallet_balance: balanceAfter })
+          .eq("id", userId);
+
+        if (updateError) throw updateError;
+
+        const { error: txError } = await supabaseAdmin.from("transactions").insert({
+          user_id: userId,
+          type: "wallet_topup",
+          amount: paidAmount,
+          balance_before: balanceBefore,
+          balance_after: balanceAfter,
+          description: "Wallet top-up via Paystack",
+          status: "completed",
+          external_ref: reference,
+          metadata: {
+            gateway: "paystack",
+            paystack_reference: reference,
+          },
+        });
+
+        if (txError) throw txError;
+      }
+
+      return new Response(JSON.stringify({ ok: true, purpose: "wallet_topup" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

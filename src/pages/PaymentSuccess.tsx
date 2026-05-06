@@ -39,6 +39,12 @@ export default function PaymentSuccess() {
         return;
       }
 
+      if (data?.purpose === "wallet_topup") {
+        toast.success("Wallet funded successfully");
+        window.location.href = "/dashboard/wallet";
+        return;
+      }
+
       if (data?.order) {
         setOrder(data.order);
       }

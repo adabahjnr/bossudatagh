@@ -1,6 +1,6 @@
 import { corsHeaders } from "../_shared/cors.ts";
 
-type Purpose = "order" | "agent_activation";
+type Purpose = "order" | "agent_activation" | "wallet_topup";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const callbackUrl = String(body?.callbackUrl ?? "").trim();
     const metadata = body?.metadata ?? {};
 
-    if (purpose !== "order" && purpose !== "agent_activation") {
+    if (purpose !== "order" && purpose !== "agent_activation" && purpose !== "wallet_topup") {
       throw new Error("Invalid payment purpose");
     }
 
