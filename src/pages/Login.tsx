@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -26,10 +27,41 @@ export default function Login() {
     if (!email || !password) return toast.error("Enter your email and password");
     setSubmitting(true);
     const { error } = await signIn(email, password);
+    if (error) {
+      setSubmitting(false);
+      return toast.error(error);
+    }
+
+    let isAdmin = false;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const authUser = data.session?.user;
+      if (authUser) {
+        const roleCandidates = [
+          authUser.app_metadata?.role,
+          authUser.app_metadata?.user_role,
+          authUser.user_metadata?.role,
+          authUser.user_metadata?.user_role,
+        ];
+
+        isAdmin = roleCandidates.some((r) => typeof r === "string" && r.trim().toLowerCase() === "admin");
+
+        if (!isAdmin) {
+          const { data: profileRow } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", authUser.id)
+            .maybeSingle();
+          isAdmin = typeof profileRow?.role === "string" && profileRow.role.trim().toLowerCase() === "admin";
+        }
+      }
+    } catch {
+      // Fallback to provider-based redirect below if this check fails
+    }
+
     setSubmitting(false);
-    if (error) return toast.error(error);
     toast.success("Welcome back");
-    // The useEffect above will handle the redirect once the user state updates
+    nav(isAdmin ? "/admin" : "/dashboard", { replace: true });
   };
 
   const sendReset = async () => {

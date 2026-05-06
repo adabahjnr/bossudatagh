@@ -323,8 +323,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn: AuthCtx["signIn"] = async (email, password) => {
+    setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
+    if (error) {
+      setLoading(false);
+      return { error: error.message };
+    }
     return { error: null };
   };
 

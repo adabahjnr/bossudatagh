@@ -10,7 +10,16 @@ import { Badge } from "@/components/ui/badge";
 export default function DashboardLayout() {
   const { currentUser } = useStore();
   const { user, profile, roles, loading } = useAuth();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-background">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Loading dashboard...</p>
+          <p className="text-sm text-muted-foreground mt-1">Please wait a moment</p>
+        </div>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   if (roles.includes("admin")) return <Navigate to="/admin" replace />;
 

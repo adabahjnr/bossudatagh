@@ -26,7 +26,16 @@ export default function AdminLayout() {
   const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-background">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Loading admin dashboard...</p>
+          <p className="text-sm text-muted-foreground mt-1">Please wait a moment</p>
+        </div>
+      </div>
+    );
+  }
   if (!user || !roles.includes("admin")) return <Navigate to="/login" replace />;
 
   return (
