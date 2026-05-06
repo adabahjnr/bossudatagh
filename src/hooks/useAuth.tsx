@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@/lib/types";
 import type { Session } from "@supabase/supabase-js";
@@ -217,7 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bootstrapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshProfile = async () => {
     const authUser = session?.user;
@@ -244,6 +245,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let visibilityHandler: (() => void) | null = null;
 
     const bootstrap = async () => {
+      if (bootstrapTimeoutRef.current) clearTimeout(bootstrapTimeoutRef.current);
+      // Fallback in case session/profile bootstrap gets stuck due transient network issues.
+      bootstrapTimeoutRef.current = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 12000);
+
       try {
         const { data } = await supabase.auth.getSession();
         if (!mounted) return;
@@ -265,6 +272,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
         }
       } finally {
+        if (bootstrapTimeoutRef.current) {
+          clearTimeout(bootstrapTimeoutRef.current);
+          bootstrapTimeoutRef.current = null;
+        }
         if (mounted) setLoading(false);
       }
     };
@@ -327,7 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (loadingTimeout) clearTimeout(loadingTimeout);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       setLoading(true);
 
       const timeout = setTimeout(() => {
@@ -335,7 +346,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       }, 15000);
-      setLoadingTimeout(timeout);
+      loadingTimeoutRef.current = timeout;
 
       try {
         const nextProfile = await getOrCreateProfile(
@@ -349,7 +360,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         if (mounted) {
           setLoading(false);
-          if (timeout) clearTimeout(timeout);
+          clearTimeout(timeout);
+          if (loadingTimeoutRef.current === timeout) {
+            loadingTimeoutRef.current = null;
+          }
         }
       }
     });
@@ -357,7 +371,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
       if (refreshInterval) clearInterval(refreshInterval);
-      if (loadingTimeout) clearTimeout(loadingTimeout);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+      if (bootstrapTimeoutRef.current) clearTimeout(bootstrapTimeoutRef.current);
       if (visibilityHandler && typeof window !== 'undefined') {
         document.removeEventListener('visibilitychange', visibilityHandler);
       }
