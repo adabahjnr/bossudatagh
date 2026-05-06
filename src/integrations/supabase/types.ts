@@ -388,6 +388,7 @@ export type Database = {
           min_withdrawal: number
           site_name: string
           updated_at: string
+          whatsapp_channel_link: string | null
           whatsapp_number: string
         }
         Insert: {
@@ -399,6 +400,7 @@ export type Database = {
           min_withdrawal?: number
           site_name?: string
           updated_at?: string
+          whatsapp_channel_link?: string | null
           whatsapp_number?: string
         }
         Update: {
@@ -410,6 +412,7 @@ export type Database = {
           min_withdrawal?: number
           site_name?: string
           updated_at?: string
+          whatsapp_channel_link?: string | null
           whatsapp_number?: string
         }
         Relationships: []
