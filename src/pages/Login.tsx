@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export default function Login() {
-  const { signIn, resetPassword, user, isAdmin, loading } = useAuth();
+  const { signIn, resetPassword, user, roles, loading } = useAuth();
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,8 +16,11 @@ export default function Login() {
   const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) nav(isAdmin ? "/admin" : "/dashboard", { replace: true });
-  }, [loading, user, isAdmin, nav]);
+    if (!loading && user) {
+      const destination = roles.includes("admin") ? "/admin" : "/dashboard";
+      nav(destination, { replace: true });
+    }
+  }, [loading, user, roles, nav]);
 
   const submit = async () => {
     if (!email || !password) return toast.error("Enter your email and password");
@@ -26,7 +29,7 @@ export default function Login() {
     setSubmitting(false);
     if (error) return toast.error(error);
     toast.success("Welcome back");
-    nav("/dashboard", { replace: true });
+    // The useEffect above will handle the redirect once the user state updates
   };
 
   const sendReset = async () => {
