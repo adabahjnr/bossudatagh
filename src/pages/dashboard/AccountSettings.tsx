@@ -10,7 +10,13 @@ export default function AccountSettings() {
   const { currentUser, setState } = useStore();
   const [name, setName] = useState(currentUser?.name ?? "");
   const [phone, setPhone] = useState(currentUser?.phone ?? "");
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your account settings...</p>
+      </Card>
+    );
+  }
 
   const save = () => {
     setState((s) => ({ ...s, users: s.users.map((u) => (u.id === currentUser.id ? { ...u, name, phone } : u)) }));

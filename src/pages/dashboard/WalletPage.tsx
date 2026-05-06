@@ -14,7 +14,13 @@ export default function WalletPage() {
   const [amount, setAmount] = useState("");
   const [open, setOpen] = useState(false);
   const [paying, setPaying] = useState(false);
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your wallet data...</p>
+      </Card>
+    );
+  }
 
   const onTopUp = async () => {
     const n = parseFloat(amount);

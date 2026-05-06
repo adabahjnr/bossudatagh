@@ -7,7 +7,13 @@ import { Link } from "react-router-dom";
 
 export default function Overview() {
   const { currentUser, state } = useStore();
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your dashboard session...</p>
+      </Card>
+    );
+  }
   const myOrders = state.orders.filter((o) => o.agentId === currentUser.id);
   const subagents = state.users.filter((u) => u.parentAgentId === currentUser.id);
 

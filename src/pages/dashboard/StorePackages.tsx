@@ -25,7 +25,13 @@ export default function StorePackages() {
   const [draftPrice, setDraftPrice] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Network>("MTN");
 
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your store packages...</p>
+      </Card>
+    );
+  }
   const catalog = state.packages.filter((p) => p.active);
   const rows = state.agentStorePackages.filter((r) => r.agentId === currentUser.id);
 

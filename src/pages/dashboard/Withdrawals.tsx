@@ -13,7 +13,13 @@ import type { Network } from "@/lib/types";
 export default function Withdrawals() {
   const { state, currentUser, requestWithdrawal } = useStore();
   const [form, setForm] = useState({ amount: "", momoNumber: "", network: "MTN" as Network, accountName: "" });
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your withdrawals data...</p>
+      </Card>
+    );
+  }
 
   const min = state.settings.minWithdrawal;
   const my = state.withdrawals.filter((w) => w.agentId === currentUser.id);

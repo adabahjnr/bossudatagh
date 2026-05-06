@@ -15,7 +15,13 @@ const endpoints = [
 
 export default function ApiDocs() {
   const { currentUser, regenerateApiKey } = useStore();
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your API settings...</p>
+      </Card>
+    );
+  }
 
   const copy = (t: string) => { navigator.clipboard.writeText(t); toast.success("Copied"); };
   const rotate = () => {

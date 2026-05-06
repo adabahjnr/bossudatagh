@@ -17,7 +17,13 @@ const templates = [
 export default function MyStore() {
   const { currentUser, setState } = useStore();
   const [brand, setBrand] = useState(currentUser?.storeBrand ?? "");
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your store settings...</p>
+      </Card>
+    );
+  }
 
   const url = `${window.location.origin}/store/${currentUser.storeSlug}`;
   const refLink = `${window.location.origin}/become-agent?ref=${currentUser.referralCode}`;

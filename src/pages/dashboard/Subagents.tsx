@@ -14,7 +14,13 @@ export default function Subagents() {
   const { state, currentUser, signupSubagent } = useStore();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
-  if (!currentUser) return null;
+  if (!currentUser) {
+    return (
+      <Card className="p-6 shadow-soft">
+        <p className="text-sm text-muted-foreground">Restoring your sub-agents...</p>
+      </Card>
+    );
+  }
 
   const list = state.users.filter((u) => u.parentAgentId === currentUser.id);
 
