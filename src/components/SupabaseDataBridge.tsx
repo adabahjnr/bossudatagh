@@ -70,7 +70,7 @@ export function SupabaseDataBridge() {
       ] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,created_at"),
+          .select("id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at,created_at"),
         supabase.from("stores").select("agent_id,slug,brand_name,logo_url,template"),
         supabase.from("data_bundles").select("id,network,label,validity_days,price_public,price_agent,active").order("sort_order", { ascending: true }),
         supabase.from("agent_packages").select("id,agent_id,bundle_id,sale_price,active,created_at,updated_at"),
@@ -115,6 +115,8 @@ export function SupabaseDataBridge() {
           totalSales: Number(row.total_sales ?? 0),
           totalReferrals: Number(row.total_referrals ?? 0),
           badges: Array.isArray(row.badges) ? row.badges : [],
+          agentActivated: row.agent_activated ?? false,
+          activationPaidAt: row.activation_paid_at ?? undefined,
           createdAt: row.created_at ?? new Date().toISOString(),
           active: row.active ?? true,
         };

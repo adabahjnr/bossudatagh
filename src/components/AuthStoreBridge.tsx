@@ -41,6 +41,8 @@ export function AuthStoreBridge() {
       totalSales: profile?.total_sales ?? user.totalSales ?? 0,
       totalReferrals: profile?.total_referrals ?? user.totalReferrals ?? 0,
       badges: profile?.badges ?? user.badges ?? [],
+      agentActivated: profile?.agent_activated ?? user.agentActivated ?? false,
+      activationPaidAt: profile?.activation_paid_at ?? user.activationPaidAt,
       createdAt: user.createdAt ?? new Date().toISOString(),
       active: profile?.active ?? user.active ?? true,
     };

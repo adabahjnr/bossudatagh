@@ -65,6 +65,8 @@ export interface User {
   totalSales?: number;
   totalReferrals?: number;
   badges?: string[];
+  agentActivated?: boolean;
+  activationPaidAt?: string;
   createdAt: string;
   active: boolean;
 }

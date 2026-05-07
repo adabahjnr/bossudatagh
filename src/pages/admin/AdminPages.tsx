@@ -229,8 +229,9 @@ export function AdminPackages() {
 
 /* ================= AGENTS ================= */
 export function AdminAgents() {
-  const { state, setUserActive, creditWallet } = useStore();
+  const { state, setState, setUserActive, creditWallet } = useStore();
   const [credit, setCredit] = useState<{ id: string; amount: string } | null>(null);
+  const [updatingActivation, setUpdatingActivation] = useState<string | null>(null);
   const agents = state.users.filter((u) => u.role === "agent" || u.role === "subagent");
 
   const doCredit = () => {
@@ -240,12 +241,44 @@ export function AdminAgents() {
     creditWallet(credit.id, a); toast.success(`Credited ${cedi(a)}`); setCredit(null);
   };
 
+  const setActivationAccess = async (userId: string, allow: boolean) => {
+    setUpdatingActivation(userId);
+    const patch = {
+      agent_activated: allow,
+      activation_paid_at: allow ? new Date().toISOString() : null,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(patch)
+      .eq("id", userId)
+      .eq("role", "agent");
+
+    if (error) {
+      toast.error(error.message || "Unable to update activation access");
+      setUpdatingActivation(null);
+      return;
+    }
+
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) =>
+        u.id === userId
+          ? { ...u, agentActivated: allow, activationPaidAt: patch.activation_paid_at ?? undefined }
+          : u,
+      ),
+    }));
+
+    toast.success(allow ? "Agent access granted without payment" : "Activation access removed");
+    setUpdatingActivation(null);
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Agents</h1>
       <Card className="overflow-x-auto shadow-soft">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50"><tr><th className="text-left p-3">Name</th><th className="text-left p-3">Role</th><th className="text-left p-3">Wallet</th><th className="text-left p-3">Sales</th><th className="text-left p-3">Status</th><th className="text-right p-3">Actions</th></tr></thead>
+          <thead className="bg-muted/50"><tr><th className="text-left p-3">Name</th><th className="text-left p-3">Role</th><th className="text-left p-3">Wallet</th><th className="text-left p-3">Sales</th><th className="text-left p-3">Status</th><th className="text-left p-3">Activation</th><th className="text-right p-3">Actions</th></tr></thead>
           <tbody>
             {agents.map((u) => (
               <tr key={u.id} className="border-t border-border">
@@ -254,7 +287,28 @@ export function AdminAgents() {
                 <td className="p-3 font-medium">{cedi(u.walletBalance)}</td>
                 <td className="p-3">{cedi(u.totalSales ?? 0)}</td>
                 <td className="p-3"><Switch checked={u.active} onCheckedChange={(v) => setUserActive(u.id, v)} /></td>
-                <td className="p-3 text-right"><Button size="sm" variant="outline" onClick={() => setCredit({ id: u.id, amount: "" })}>Credit wallet</Button></td>
+                <td className="p-3">
+                  {u.role === "agent" ? (
+                    <Badge variant={u.agentActivated ? "default" : "secondary"}>
+                      {u.agentActivated ? "Activated" : "Payment required"}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </td>
+                <td className="p-3 text-right space-x-1">
+                  <Button size="sm" variant="outline" onClick={() => setCredit({ id: u.id, amount: "" })}>Credit wallet</Button>
+                  {u.role === "agent" && (
+                    <Button
+                      size="sm"
+                      variant={u.agentActivated ? "ghost" : "default"}
+                      disabled={updatingActivation === u.id}
+                      onClick={() => void setActivationAccess(u.id, !u.agentActivated)}
+                    >
+                      {updatingActivation === u.id ? "Updating..." : u.agentActivated ? "Revoke access" : "Grant access"}
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
