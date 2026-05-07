@@ -2,6 +2,19 @@
 -- auth.jwt() ->> 'role' which is always 'authenticated', never 'admin'.
 -- Replace with fn_is_admin() which queries the profiles table correctly.
 
+create or replace function public.fn_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+	select exists (
+		select 1 from public.profiles
+		where id = auth.uid() and role = 'admin'
+	);
+$$;
+
 drop policy if exists "profiles_update_agent_activation" on public.profiles;
 create policy "profiles_update_agent_activation"
 on public.profiles

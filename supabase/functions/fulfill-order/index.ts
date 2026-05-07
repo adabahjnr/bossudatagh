@@ -27,15 +27,16 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const providerToken = Deno.env.get("DEVELOPER_API_BEARER_TOKEN");
-    const providerBaseUrl =
-      Deno.env.get("DEVELOPER_API_BASE_URL") ||
-      "https://lsocdjpflecduumopijn.supabase.co/functions/v1/developer-api";
+    const providerBaseUrl = Deno.env.get("DEVELOPER_API_BASE_URL");
 
     if (!supabaseUrl || !serviceRole) {
       throw new Error("Missing Supabase service configuration");
     }
     if (!providerToken) {
       throw new Error("Missing DEVELOPER_API_BEARER_TOKEN");
+    }
+    if (!providerBaseUrl) {
+      throw new Error("Missing DEVELOPER_API_BASE_URL");
     }
 
     const { ref } = await req.json();

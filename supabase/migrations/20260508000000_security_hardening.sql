@@ -139,6 +139,23 @@ create policy "withdrawals_admin_update"
 -- ============================================================================
 -- TRANSACTIONS
 -- ============================================================================
+create extension if not exists pgcrypto;
+
+create table if not exists public.transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid null references public.profiles(id) on delete set null,
+  order_id uuid null references public.orders(id) on delete set null,
+  type text not null,
+  amount numeric(12,2) not null default 0,
+  balance_before numeric(12,2) null,
+  balance_after numeric(12,2) null,
+  description text null,
+  status text not null default 'completed',
+  external_ref text null,
+  metadata jsonb null,
+  created_at timestamptz not null default now()
+);
+
 alter table public.transactions enable row level security;
 
 drop policy if exists "transactions_user_select_own" on public.transactions;
@@ -155,6 +172,96 @@ create policy "transactions_admin_select_all"
 -- ============================================================================
 -- DATA_BUNDLES
 -- ============================================================================
+create table if not exists public.data_bundles (
+  id uuid primary key default gen_random_uuid(),
+  network text not null,
+  label text not null,
+  size_mb integer,
+  validity_days integer,
+  price_public numeric(10,2) not null default 0,
+  price_agent numeric(10,2) not null default 0,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.checker_packages (
+  id uuid primary key default gen_random_uuid(),
+  checker_type text not null,
+  price_public numeric(10,2) not null default 0,
+  price_agent numeric(10,2) not null default 0,
+  stock integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.stores (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid null references public.profiles(id) on delete cascade,
+  slug text,
+  brand_name text,
+  logo_url text,
+  template text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.agent_packages (
+  id uuid primary key default gen_random_uuid(),
+  agent_id uuid not null references public.profiles(id) on delete cascade,
+  bundle_id uuid null references public.data_bundles(id) on delete cascade,
+  checker_id uuid null references public.checker_packages(id) on delete cascade,
+  sale_price numeric(10,2) not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.free_data_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  data_size text not null,
+  network text not null,
+  total_codes integer not null default 0,
+  redeemed_count integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.campaign_codes (
+  id uuid primary key default gen_random_uuid(),
+  campaign_id uuid not null references public.free_data_campaigns(id) on delete cascade,
+  code text not null,
+  redeemed boolean not null default false,
+  redeemed_by text,
+  redeemed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  message text not null,
+  type text not null default 'info',
+  audience text not null default 'all',
+  created_at timestamptz not null default now()
+);
+
+alter table public.notifications
+  add column if not exists user_id uuid references public.profiles(id) on delete cascade;
+
+create table if not exists public.site_settings (
+  key text primary key,
+  value jsonb not null,
+  description text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null
+);
+
 alter table public.data_bundles enable row level security;
 
 drop policy if exists "data_bundles_public_read"   on public.data_bundles;
