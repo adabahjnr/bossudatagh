@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id,ref,network,recipient_phone,amount,status,fulfillment_error")
+      .select("id,ref,network,recipient_phone,amount,status,fulfillment_error,bundle_id,product_label,data_bundles(size_mb)")
       .eq("ref", ref)
       .maybeSingle();
 
@@ -65,13 +65,21 @@ Deno.serve(async (req) => {
 
     const networkCode = mapNetworkCode(order.network);
     const customerNumber = cleanPhone(order.recipient_phone as string);
-    const amount = Number(order.amount ?? 0);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error("Invalid order amount");
+    // Compute package_size string from data_bundles.size_mb (e.g. 1024 → "1GB", 500 → "500MB")
+    const bundle = (order as Record<string, unknown>).data_bundles as { size_mb: number } | null;
+    let package_size: string;
+    if (bundle && Number.isInteger(bundle.size_mb) && bundle.size_mb > 0) {
+      const mb = bundle.size_mb;
+      package_size = mb >= 1000 ? `${mb / 1000}GB` : `${mb}MB`;
+    } else {
+      // Fallback: parse from product_label e.g. "MTN 5GB" → "5GB"
+      const labelMatch = String(order.product_label ?? "").match(/(\d+(?:\.\d+)?\s*(?:GB|MB))/i);
+      if (!labelMatch) throw new Error("Cannot determine package_size from order");
+      package_size = labelMatch[1].replace(/\s+/g, "").toUpperCase();
     }
 
-    const providerRes = await fetch(`${providerBaseUrl}/airtime`, {
+    const providerRes = await fetch(`${providerBaseUrl}?action=airtime`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${providerToken}`,
@@ -79,7 +87,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         networkCode,
-        amount,
+        package_size,
         customerNumber,
         request_id: order.ref,
       }),
