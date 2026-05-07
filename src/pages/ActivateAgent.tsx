@@ -22,7 +22,10 @@ export default function ActivateAgent() {
     }
   }, [user, profile, refreshProfile]);
 
-  if (loading || (user && !profile)) {
+  const isAgent = profile?.role === "agent" || roles.includes("agent");
+  const isActivated = profile?.agent_activated ?? false;
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-hero grid place-items-center p-4">
         <Card className="p-8 shadow-elegant text-center w-full max-w-md">
@@ -35,8 +38,8 @@ export default function ActivateAgent() {
 
   if (!user) return <Navigate to="/login" replace />;
   if (roles.includes("admin")) return <Navigate to="/admin" replace />;
-  if (profile?.role !== "agent") return <Navigate to="/dashboard" replace />;
-  if (profile?.agent_activated) return <Navigate to="/dashboard" replace />;
+  if (!isAgent) return <Navigate to="/dashboard" replace />;
+  if (isActivated) return <Navigate to="/dashboard" replace />;
 
   const handlePayment = async () => {
     if (!user) return toast.error("Not logged in");

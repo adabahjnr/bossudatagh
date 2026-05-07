@@ -48,6 +48,11 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+const PROFILE_SELECT =
+  "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at";
+const PROFILE_SELECT_LEGACY =
+  "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active";
+
 function roleFromProfileLike(value: unknown): AppRole {
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
@@ -159,13 +164,29 @@ async function getOrCreateProfile(
   userMetadata: Record<string, any> | undefined,
   appMetadata: Record<string, any> | undefined,
 ) {
-  const { data: existing, error: readError } = await supabase
+  let existing: any = null;
+  let readError: any = null;
+
+  const fullRead = await supabase
     .from("profiles")
-    .select(
-      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
-    )
+    .select(PROFILE_SELECT)
     .eq("id", userId)
     .maybeSingle();
+
+  existing = fullRead.data;
+  readError = fullRead.error;
+
+  // Backward-compatible fallback if the DB is missing newer activation columns.
+  if (readError && /agent_activated|activation_paid_at/i.test(readError.message ?? "")) {
+    const legacyRead = await supabase
+      .from("profiles")
+      .select(PROFILE_SELECT_LEGACY)
+      .eq("id", userId)
+      .maybeSingle();
+
+    existing = legacyRead.data;
+    readError = legacyRead.error;
+  }
 
   if (readError) throw readError;
   if (existing) return mapProfileRow(existing);
@@ -186,23 +207,53 @@ async function getOrCreateProfile(
     active: true,
   };
 
-  const { data: created, error: createError } = await supabase
+  let created: any = null;
+  let createError: any = null;
+
+  const fullCreate = await supabase
     .from("profiles")
     .insert(payload)
-    .select(
-      "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
-    )
+    .select(PROFILE_SELECT)
     .maybeSingle();
+
+  created = fullCreate.data;
+  createError = fullCreate.error;
+
+  if (createError && /agent_activated|activation_paid_at/i.test(createError.message ?? "")) {
+    const legacyCreate = await supabase
+      .from("profiles")
+      .insert(payload)
+      .select(PROFILE_SELECT_LEGACY)
+      .maybeSingle();
+
+    created = legacyCreate.data;
+    createError = legacyCreate.error;
+  }
 
   if (createError) {
     if (createError.code === "23505") {
-      const { data: retryExisting, error: retryError } = await supabase
+      let retryExisting: any = null;
+      let retryError: any = null;
+
+      const fullRetry = await supabase
         .from("profiles")
-        .select(
-          "id,role,name,phone,store_slug,store_template,store_logo,store_brand,parent_agent_id,api_key,referral_code,wallet_balance,total_sales,total_referrals,badges,active,agent_activated,activation_paid_at",
-        )
+        .select(PROFILE_SELECT)
         .eq("id", userId)
         .maybeSingle();
+
+      retryExisting = fullRetry.data;
+      retryError = fullRetry.error;
+
+      if (retryError && /agent_activated|activation_paid_at/i.test(retryError.message ?? "")) {
+        const legacyRetry = await supabase
+          .from("profiles")
+          .select(PROFILE_SELECT_LEGACY)
+          .eq("id", userId)
+          .maybeSingle();
+
+        retryExisting = legacyRetry.data;
+        retryError = legacyRetry.error;
+      }
 
       if (retryError) throw retryError;
       if (retryExisting) return mapProfileRow(retryExisting);
