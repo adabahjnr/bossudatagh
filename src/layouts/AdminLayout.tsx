@@ -1,9 +1,11 @@
 import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
   LayoutDashboard, ShoppingBag, Package, Users,
   ArrowDownToLine, Bell, Gift, Settings, LogOut, Wrench,
@@ -25,6 +27,21 @@ export default function AdminLayout() {
   const { currentUser, state } = useStore();
   const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const onSignOut = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not sign out cleanly. Redirecting...");
+    } finally {
+      nav("/login", { replace: true });
+      setLoggingOut(false);
+    }
+  };
+
   // Only block rendering while we truly don't know the auth state yet.
   if (loading && !user) {
     return (
@@ -51,8 +68,8 @@ export default function AdminLayout() {
           ))}
         </nav>
         <div className="p-3 border-t border-sidebar-border">
-          <Button variant="ghost" size="sm" className="w-full justify-start" onClick={async () => { await signOut(); nav("/"); }}>
-            <LogOut className="h-4 w-4 mr-2" /> Sign out
+          <Button variant="ghost" size="sm" className="w-full justify-start" disabled={loggingOut} onClick={onSignOut}>
+            <LogOut className="h-4 w-4 mr-2" /> {loggingOut ? "Signing out..." : "Sign out"}
           </Button>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import type {
   AgentStorePackage,
   CheckerPackage,
@@ -50,12 +51,13 @@ function parseSettings(rows: Array<{ key: string; value: unknown }>): SiteSettin
 
 export function SupabaseDataBridge() {
   const { setState } = useStore();
+  const { roles } = useAuth();
 
   useEffect(() => {
     let mounted = true;
 
     const syncAll = async () => {
-      const [
+      let [
         profilesRes,
         storesRes,
         bundlesRes,
@@ -82,6 +84,41 @@ export function SupabaseDataBridge() {
         supabase.from("notifications").select("id,title,message,type,audience,created_at").order("created_at", { ascending: false }),
         supabase.from("site_settings").select("key,value"),
       ]);
+
+      const hadClientQueryError = [
+        profilesRes,
+        storesRes,
+        bundlesRes,
+        agentPackagesRes,
+        checkersRes,
+        ordersRes,
+        withdrawalsRes,
+        campaignsRes,
+        codesRes,
+        notificationsRes,
+        settingsRes,
+      ].some((r) => Boolean(r.error));
+
+      // Admin fallback: if any direct query fails (often due RLS/policy drift),
+      // fetch a consolidated snapshot from a verified admin edge function.
+      if (roles.includes("admin") && hadClientQueryError) {
+        const { data: adminData, error: adminDataError } = await supabase.functions.invoke("admin-dashboard-data");
+        if (!adminDataError && adminData) {
+          profilesRes = { data: adminData.profiles ?? [], error: null } as typeof profilesRes;
+          storesRes = { data: adminData.stores ?? [], error: null } as typeof storesRes;
+          bundlesRes = { data: adminData.bundles ?? [], error: null } as typeof bundlesRes;
+          agentPackagesRes = { data: adminData.agentPackages ?? [], error: null } as typeof agentPackagesRes;
+          checkersRes = { data: adminData.checkers ?? [], error: null } as typeof checkersRes;
+          ordersRes = { data: adminData.orders ?? [], error: null } as typeof ordersRes;
+          withdrawalsRes = { data: adminData.withdrawals ?? [], error: null } as typeof withdrawalsRes;
+          campaignsRes = { data: adminData.campaigns ?? [], error: null } as typeof campaignsRes;
+          codesRes = { data: adminData.codes ?? [], error: null } as typeof codesRes;
+          notificationsRes = { data: adminData.notifications ?? [], error: null } as typeof notificationsRes;
+          settingsRes = { data: adminData.settings ?? [], error: null } as typeof settingsRes;
+        } else {
+          console.error("[SupabaseDataBridge] admin-dashboard-data fallback failed", adminDataError);
+        }
+      }
 
       if (!mounted) return;
 
@@ -255,7 +292,7 @@ export function SupabaseDataBridge() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [setState]);
+  }, [setState, roles]);
 
   return null;
 }

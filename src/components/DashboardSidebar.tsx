@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
+import { useState } from "react";
 import {
   LayoutDashboard, Wallet, ShoppingCart, Store,
   ArrowDownToLine, Trophy, Code2, Settings, LogOut, Package,
@@ -11,6 +12,7 @@ import { Logo } from "./Logo";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
+import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
 const allItems = [
@@ -32,12 +34,21 @@ export function DashboardSidebar() {
   const { currentUser } = useStore();
   const { signOut } = useAuth();
   const nav = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const items = allItems.filter((i) => currentUser && i.roles.includes(currentUser.role));
 
   const onLogout = async () => {
-    await signOut();
-    nav("/login", { replace: true });
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Could not sign out cleanly. Redirecting...");
+    } finally {
+      nav("/login", { replace: true });
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -78,8 +89,8 @@ export function DashboardSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <div className="px-2 mt-auto pb-4">
-          <Button variant="ghost" size="sm" className="w-full justify-start font-semibold" onClick={onLogout}>
-            <LogOut className="h-4 w-4 mr-2" /> {!collapsed && "Sign out"}
+          <Button variant="ghost" size="sm" className="w-full justify-start font-semibold" disabled={loggingOut} onClick={onLogout}>
+            <LogOut className="h-4 w-4 mr-2" /> {!collapsed && (loggingOut ? "Signing out..." : "Sign out")}
           </Button>
         </div>
       </SidebarContent>
