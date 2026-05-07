@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,15 +53,28 @@ export function SupabaseDataBridge() {
   const { setState } = useStore();
   const { roles } = useAuth();
 
+  // Keep roles in a ref so syncAll always sees the latest value without
+  // causing the effect (and its timers) to restart on every auth change.
+  const rolesRef = useRef(roles);
+  useEffect(() => {
+    rolesRef.current = roles;
+  }, [roles]);
+
   useEffect(() => {
     let mounted = true;
 
     const syncAll = async () => {
-      // For admins, prefer the server-side consolidated snapshot so dashboard data
-      // remains complete even when client-side RLS allows only partial reads.
-      if (roles.includes("admin")) {
+      // For admins, use ONLY the server-side snapshot that bypasses RLS.
+      // If it fails for any reason, return without touching state — preserving
+      // previously loaded data is safer than overwriting with empty arrays.
+      if (rolesRef.current.includes("admin")) {
         const { data: adminData, error: adminDataError } = await supabase.functions.invoke("admin-dashboard-data");
-        if (!adminDataError && adminData && mounted) {
+        if (adminDataError || !adminData) {
+          console.warn("[SupabaseDataBridge] admin-dashboard-data failed, keeping existing state", adminDataError);
+          return; // do NOT fall through to RLS-restricted client queries
+        }
+        if (!mounted) return;
+        if (true) { // scope block
           const storesByAgent = new Map<string, { slug: string | null; brand_name: string | null; logo_url: string | null; template: string | null }>();
           (adminData.stores ?? []).forEach((row: any) => {
             storesByAgent.set(row.agent_id, {
@@ -204,12 +217,8 @@ export function SupabaseDataBridge() {
             settings,
           }));
           return;
-        }
-
-        if (adminDataError) {
-          console.error("[SupabaseDataBridge] admin-dashboard-data failed, falling back to client queries", adminDataError);
-        }
-      }
+        } // end scope block
+      } // end admin path
 
       let [
         profilesRes,
@@ -239,38 +248,22 @@ export function SupabaseDataBridge() {
         supabase.from("site_settings").select("key,value"),
       ]);
 
-      const hadClientQueryError = [
+      // For non-admin users: if all queries errored, don't wipe state.
+      const allQueriesEmpty = [
         profilesRes,
-        storesRes,
-        bundlesRes,
-        agentPackagesRes,
-        checkersRes,
         ordersRes,
-        withdrawalsRes,
-        campaignsRes,
-        codesRes,
-        notificationsRes,
+        settingsRes,
+      ].every((r) => !r.error && (!r.data || (r.data as unknown[]).length === 0));
+      const anyQueryErrored = [
+        profilesRes,
+        bundlesRes,
         settingsRes,
       ].some((r) => Boolean(r.error));
 
-      // Secondary admin fallback in case client queries fail.
-      if (roles.includes("admin") && hadClientQueryError) {
-        const { data: adminData, error: adminDataError } = await supabase.functions.invoke("admin-dashboard-data");
-        if (!adminDataError && adminData) {
-          profilesRes = { data: adminData.profiles ?? [], error: null } as typeof profilesRes;
-          storesRes = { data: adminData.stores ?? [], error: null } as typeof storesRes;
-          bundlesRes = { data: adminData.bundles ?? [], error: null } as typeof bundlesRes;
-          agentPackagesRes = { data: adminData.agentPackages ?? [], error: null } as typeof agentPackagesRes;
-          checkersRes = { data: adminData.checkers ?? [], error: null } as typeof checkersRes;
-          ordersRes = { data: adminData.orders ?? [], error: null } as typeof ordersRes;
-          withdrawalsRes = { data: adminData.withdrawals ?? [], error: null } as typeof withdrawalsRes;
-          campaignsRes = { data: adminData.campaigns ?? [], error: null } as typeof campaignsRes;
-          codesRes = { data: adminData.codes ?? [], error: null } as typeof codesRes;
-          notificationsRes = { data: adminData.notifications ?? [], error: null } as typeof notificationsRes;
-          settingsRes = { data: adminData.settings ?? [], error: null } as typeof settingsRes;
-        } else {
-          console.error("[SupabaseDataBridge] admin-dashboard-data fallback failed", adminDataError);
-        }
+      // If critical queries all failed, preserve existing state.
+      if (anyQueryErrored && allQueriesEmpty) {
+        console.warn("[SupabaseDataBridge] critical queries failed/empty, keeping existing state");
+        return;
       }
 
       if (!mounted) return;
@@ -445,7 +438,7 @@ export function SupabaseDataBridge() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [setState, roles]);
+  }, [setState]); // roles intentionally omitted — accessed via rolesRef to avoid effect restarts
 
   return null;
 }
