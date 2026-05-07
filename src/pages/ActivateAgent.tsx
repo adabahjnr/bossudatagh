@@ -77,6 +77,7 @@ export default function ActivateAgent() {
           </div>
 
           <div className="rounded-lg bg-gradient-primary/10 border border-primary/20 p-4 space-y-3">
+            <h2 className="font-semibold text-base">Payment Information</h2>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Activation fee</span>
               <span className="font-semibold">{cedi(activationFee)}</span>
@@ -84,6 +85,10 @@ export default function ActivateAgent() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Gateway</span>
               <span className="font-semibold">Paystack</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Verification</span>
+              <span className="font-semibold">Automatic after payment</span>
             </div>
             <div className="flex items-center justify-between border-t border-primary/10 pt-3">
               <span className="font-semibold">Total</span>
@@ -119,7 +124,7 @@ export default function ActivateAgent() {
             disabled={paying}
             onClick={handlePayment}
           >
-            {paying ? "Processing..." : `Pay ${cedi(activationFee)} to Activate`}
+            {paying ? "Redirecting to Paystack..." : `Pay ${cedi(activationFee)} with Paystack`}
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
