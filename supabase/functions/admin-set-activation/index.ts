@@ -22,18 +22,54 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use the caller's JWT to verify admin role via anon client.
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const callerClient = createClient(supabaseUrl, anonKey ?? "", {
+    if (!anonKey) {
+      throw new Error("Missing SUPABASE_ANON_KEY");
+    }
+
+    // Validate caller identity from JWT, then authorize with robust admin detection.
+    const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { data: callerProfile, error: callerErr } = await callerClient
+
+    const { data: userData, error: userErr } = await callerClient.auth.getUser();
+    const user = userData.user;
+    if (userErr || !user?.id) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const authRoles = new Set<string>();
+    const appMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
+    const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const roleCandidates = [appMeta.role, appMeta.user_role, appMeta.roles, userMeta.role, userMeta.user_role];
+    for (const candidate of roleCandidates) {
+      if (Array.isArray(candidate)) {
+        for (const item of candidate) {
+          if (typeof item === "string") authRoles.add(item.trim().toLowerCase());
+        }
+      } else if (typeof candidate === "string") {
+        authRoles.add(candidate.trim().toLowerCase());
+      }
+    }
+
+    const { data: callerProfile, error: callerErr } = await admin
       .from("profiles")
       .select("role")
-      .eq("id", (await callerClient.auth.getUser()).data.user?.id ?? "")
+      .eq("id", user.id)
       .maybeSingle();
 
-    if (callerErr || callerProfile?.role !== "admin") {
+    const isAdminByProfile = callerProfile?.role === "admin";
+    const isAdminByAuth = authRoles.has("admin");
+
+    if (callerErr || (!isAdminByProfile && !isAdminByAuth)) {
       return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -49,9 +85,6 @@ Deno.serve(async (req) => {
     }
 
     // Use service role client — bypasses RLS entirely.
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
 
     const { error } = await admin
       .from("profiles")
