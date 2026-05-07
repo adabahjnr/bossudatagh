@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 const PROJECT_REF = "ukdjfzllnlykwjqknqqe";
 const FALLBACK_SUPABASE_URL = `https://${PROJECT_REF}.supabase.co`;
 const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -11,30 +13,57 @@ const SUPABASE_ANON_KEY =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrZGpmemxsbmx5a3dqcWtucXFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1NTkzNDMsImV4cCI6MjA5MzEzNTM0M30.UbF8nscWMGvHFWWkW3cBjVmjvdRjHJuUbXZucsBlZ4c";
 
-type Purpose = "order" | "agent_activation" | "wallet_topup";
-
-interface InitializePaymentInput {
-  purpose: Purpose;
-  amount: number;
+/** For data bundle purchases (public storefront or agent mini-store) */
+export interface OrderPaymentInput {
+  purpose: "order";
   email: string;
   callbackUrl: string;
-  metadata?: Record<string, unknown>;
+  recipientPhone: string;
+  packageId?: string;  // data_bundles.id
+  checkerId?: string;  // checker_packages.id
+  agentId?: string;    // if buying from an agent's mini-store
 }
 
+/** For agent account activation */
+export interface ActivationPaymentInput {
+  purpose: "agent_activation";
+  email: string;
+  callbackUrl: string;
+}
+
+/** For wallet top-up (amount is user-chosen, validated server-side min ₵5 max ₵5,000) */
+export interface TopupPaymentInput {
+  purpose: "wallet_topup";
+  email: string;
+  callbackUrl: string;
+  amount: number;
+}
+
+export type InitializePaymentInput = OrderPaymentInput | ActivationPaymentInput | TopupPaymentInput;
+
 /**
- * Calls the paystack-initialize Edge Function via raw fetch (bypasses supabase.functions.invoke
- * middleware that can silently swallow errors or add headers that break the no-verify-jwt flow).
+ * Calls the paystack-initialize Edge Function via raw fetch.
+ * Includes the auth token for purposes that require it (activation, topup).
  * Returns the Paystack authorization_url to redirect to.
  */
 export async function initializePaystackPayment(input: InitializePaymentInput): Promise<string> {
   const url = `${SUPABASE_URL}/functions/v1/paystack-initialize`;
 
+  // Include JWT for authenticated purposes so server can derive userId securely
+  const { data: sessionData } = await supabase.auth.getSession();
+  const authToken = sessionData?.session?.access_token;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_ANON_KEY,
+  };
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const res = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SUPABASE_ANON_KEY,
-    },
+    headers,
     body: JSON.stringify(input),
   });
 

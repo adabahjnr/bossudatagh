@@ -63,18 +63,15 @@ export function PurchaseDialog({
     setSubmitting(true);
     try {
       if (pricing === "public") {
+        // Send packageId/checkerId — price is looked up server-side (never trust frontend amount)
         const authUrl = await initializePaystackPayment({
           purpose: "order",
-          amount: price,
           email,
           callbackUrl: `${window.location.origin}/payment-success?purpose=order`,
-          metadata: {
-            productLabel: label,
-            network: item.kind === "data" ? item.pkg.network : null,
-            recipientPhone: phone,
-            buyerType: "public",
-            agentId: item.agentId ?? null,
-          },
+          recipientPhone: phone,
+          ...(item.kind === "data"
+            ? { packageId: item.pkg.id, agentId: item.agentId }
+            : { checkerId: item.pkg.id }),
         });
 
         redirectToPayment(authUrl);

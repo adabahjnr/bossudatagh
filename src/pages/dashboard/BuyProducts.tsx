@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -41,11 +42,12 @@ const NETWORK_STYLE: Record<Network, {
 };
 
 export default function BuyProducts() {
-  const { state, currentUser, deductWallet, placeOrder } = useStore();
+  const { state, currentUser, setState } = useStore();
   const [net, setNet] = useState<Network>("MTN");
   const [recipient, setRecipient] = useState("");
   const [successOrder, setSuccessOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
+  const [buying, setBuying] = useState<string | null>(null);
 
   const packages = useMemo(
     () =>
@@ -56,18 +58,74 @@ export default function BuyProducts() {
     [state.packages, net],
   );
 
-  const buyData = (id: string) => {
+  const buyData = async (id: string) => {
     if (!currentUser) return;
-    const pkg = state.packages.find((p) => p.id === id);
-    if (!pkg) return;
     if (!/^0\d{9}$/.test(recipient)) { toast.error("Enter a valid recipient phone"); return; }
-    if (!deductWallet(currentUser.id, pkg.priceAgent)) { toast.error("Insufficient wallet balance. Top up first."); return; }
-    const order = placeOrder({
-      productLabel: `${pkg.network} ${pkg.size}`, network: pkg.network,
-      recipient, amount: pkg.priceAgent, buyerType: "agent", agentId: currentUser.id,
-    });
-    setSuccessOrder(order);
-    setRecipient("");
+    setBuying(id);
+    try {
+      // Secure server-side purchase: price is validated on the server, not trusted from client
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) { toast.error("Session expired. Please log in again."); return; }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://ukdjfzllnlykwjqknqqe.supabase.co";
+      const res = await fetch(`${supabaseUrl}/functions/v1/agent-buy`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ packageId: id, recipientPhone: recipient }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json?.error ?? "Purchase failed. Please try again.");
+        return;
+      }
+
+      // Update local state to reflect server-confirmed balance and new order
+      const { order, newBalance } = json as { order: { ref: string; product_label: string; recipient_phone: string; amount: number }; newBalance: number };
+
+      setState((s) => ({
+        ...s,
+        users: s.users.map((u) => u.id === currentUser.id ? { ...u, walletBalance: newBalance } : u),
+        orders: [
+          {
+            id: order.ref,
+            ref: order.ref,
+            productLabel: order.product_label,
+            recipient: order.recipient_phone,
+            network: net,
+            amount: order.amount,
+            status: "processing",
+            buyerType: "agent",
+            agentId: currentUser.id,
+            createdAt: new Date().toISOString(),
+          },
+          ...s.orders,
+        ],
+      }));
+
+      setSuccessOrder({
+        id: order.ref,
+        ref: order.ref,
+        productLabel: order.product_label,
+        recipient: order.recipient_phone,
+        network: net,
+        amount: order.amount,
+        status: "processing",
+        buyerType: "agent",
+        agentId: currentUser.id,
+        createdAt: new Date().toISOString(),
+      });
+      setRecipient("");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Purchase failed. Please try again.";
+      toast.error(msg);
+    } finally {
+      setBuying(null);
+    }
   };
 
   const copyRef = () => {
@@ -150,7 +208,9 @@ export default function BuyProducts() {
                   </div>
                   <div className="mt-4 flex items-end justify-between">
                     <div className={`text-xl font-bold ${ns.price}`}>{cedi(p.priceAgent)}</div>
-                    <Button size="sm" className={ns.btn} onClick={() => buyData(p.id)}>Buy</Button>
+                    <Button size="sm" className={ns.btn} disabled={buying === p.id} onClick={() => void buyData(p.id)}>
+                      {buying === p.id ? "..." : "Buy"}
+                    </Button>
                   </div>
                 </Card>
               );

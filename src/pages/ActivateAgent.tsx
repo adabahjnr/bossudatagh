@@ -48,10 +48,9 @@ export default function ActivateAgent() {
     try {
       const authUrl = await initializePaystackPayment({
         purpose: "agent_activation",
-        amount: activationFee,
         email: user.email ?? "",
         callbackUrl: `${window.location.origin}/payment-success?purpose=agent_activation`,
-        metadata: { userId: user.id },
+        // amount and userId are determined server-side from the auth session
       });
 
       redirectToPayment(authUrl);

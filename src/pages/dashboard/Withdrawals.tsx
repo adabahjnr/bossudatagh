@@ -6,13 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { cedi, shortDate } from "@/lib/format";
 import { toast } from "sonner";
 import type { Network } from "@/lib/types";
 
 export default function Withdrawals() {
-  const { state, currentUser, requestWithdrawal } = useStore();
+  const { state, currentUser, setState } = useStore();
   const [form, setForm] = useState({ amount: "", momoNumber: "", network: "MTN" as Network, accountName: "" });
+  const [submitting, setSubmitting] = useState(false);
+
   if (!currentUser) {
     return (
       <Card className="p-6 shadow-soft">
@@ -24,15 +27,72 @@ export default function Withdrawals() {
   const min = state.settings.minWithdrawal;
   const my = state.withdrawals.filter((w) => w.agentId === currentUser.id);
 
-  const submit = () => {
+  const submit = async () => {
     const amt = parseFloat(form.amount);
     if (!amt || amt < min) { toast.error(`Minimum withdrawal is ${cedi(min)}`); return; }
-    if (amt > currentUser.walletBalance) { toast.error("Amount exceeds wallet balance"); return; }
     if (!/^0\d{9}$/.test(form.momoNumber)) { toast.error("Invalid mobile money number"); return; }
     if (!form.accountName) { toast.error("Account name is required"); return; }
-    requestWithdrawal({ agentId: currentUser.id, amount: amt, momoNumber: form.momoNumber, network: form.network, accountName: form.accountName });
-    toast.success("Withdrawal request submitted. Admin will process shortly.");
-    setForm({ amount: "", momoNumber: "", network: "MTN", accountName: "" });
+
+    setSubmitting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) { toast.error("Session expired. Please log in again."); return; }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://ukdjfzllnlykwjqknqqe.supabase.co";
+      const res = await fetch(`${supabaseUrl}/functions/v1/agent-withdraw`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amt,
+          momoNumber: form.momoNumber,
+          network: form.network,
+          accountName: form.accountName,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json?.error ?? "Request failed. Please try again.");
+        return;
+      }
+
+      const { withdrawal, newBalance } = json as {
+        withdrawal: { id: string; amount: number; momo_number: string; momo_network: string; account_name: string; status: string; created_at: string };
+        newBalance: number;
+      };
+
+      // Update local state with server-confirmed balance and new withdrawal
+      setState((s) => ({
+        ...s,
+        users: s.users.map((u) => u.id === currentUser.id ? { ...u, walletBalance: newBalance } : u),
+        withdrawals: [
+          {
+            id: withdrawal.id,
+            agentId: currentUser.id,
+            agentName: currentUser.name ?? "You",
+            amount: withdrawal.amount,
+            momoNumber: withdrawal.momo_number,
+            network: withdrawal.momo_network as Network,
+            accountName: withdrawal.account_name,
+            status: withdrawal.status as "pending" | "paid" | "rejected",
+            createdAt: withdrawal.created_at,
+          },
+          ...s.withdrawals,
+        ],
+      }));
+
+      toast.success("Withdrawal request submitted. Admin will process shortly.");
+      setForm({ amount: "", momoNumber: "", network: "MTN", accountName: "" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Request failed. Please try again.";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -60,7 +120,9 @@ export default function Withdrawals() {
             </Select>
           </div>
           <div><Label>Account name</Label><Input value={form.accountName} onChange={(e) => setForm({ ...form, accountName: e.target.value })} /></div>
-          <Button className="w-full bg-gradient-primary" onClick={submit}>Submit request</Button>
+          <Button className="w-full bg-gradient-primary" disabled={submitting} onClick={() => void submit()}>
+            {submitting ? "Submitting..." : "Submit request"}
+          </Button>
         </Card>
 
         <Card className="p-6 shadow-soft">

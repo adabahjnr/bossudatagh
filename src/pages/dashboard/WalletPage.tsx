@@ -37,7 +37,7 @@ export default function WalletPage() {
         amount: n,
         email: user.email,
         callbackUrl: `${window.location.origin}/payment-success?purpose=wallet_topup`,
-        metadata: { userId: currentUser.id },
+        // userId is derived server-side from the auth session (JWT)
       });
 
       redirectToPayment(authUrl);

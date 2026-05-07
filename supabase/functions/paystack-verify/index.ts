@@ -9,6 +9,9 @@ type VerifyMeta = {
   recipientPhone?: string;
   buyerType?: string;
   agentId?: string | null;
+  // Set by paystack-initialize for server-side price verification
+  packageId?: string;
+  checkerId?: string;
 };
 
 Deno.serve(async (req) => {
@@ -174,6 +177,33 @@ Deno.serve(async (req) => {
       }
 
       const paidAmount = Number(tx.amount ?? 0) / 100;
+
+      // Defense-in-depth: verify the paid amount matches the canonical package price
+      if (metadata.packageId) {
+        const priceQuery = metadata.agentId
+          ? supabaseAdmin
+              .from("agent_packages")
+              .select("sale_price")
+              .eq("agent_id", metadata.agentId)
+              .eq("bundle_id", metadata.packageId)
+              .maybeSingle()
+          : supabaseAdmin
+              .from("data_bundles")
+              .select("price_public")
+              .eq("id", metadata.packageId)
+              .maybeSingle();
+
+        const { data: priceRow } = await priceQuery;
+        if (priceRow) {
+          const expectedPrice: number = (priceRow as { sale_price?: number; price_public?: number }).sale_price
+            ?? (priceRow as { sale_price?: number; price_public?: number }).price_public
+            ?? 0;
+          if (expectedPrice > 0 && Math.abs(paidAmount - expectedPrice) > 0.01) {
+            throw new Error("Payment amount does not match the expected package price");
+          }
+        }
+      }
+
       const generatedRef = `ps_${reference}`;
 
       const { data: insertedOrder, error: orderError } = await supabaseAdmin
@@ -183,6 +213,7 @@ Deno.serve(async (req) => {
           product_label: metadata.productLabel,
           network: metadata.network ?? null,
           recipient_phone: metadata.recipientPhone,
+          bundle_id: metadata.packageId ?? null,
           amount: paidAmount,
           buyer_type: metadata.buyerType ?? "public",
           agent_id: metadata.agentId ?? null,
