@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { initializePaystackPayment, redirectToPayment } from "@/lib/paystack";
 import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
 
 export default function WalletPage() {
   const { currentUser, state } = useStore();
@@ -80,7 +81,7 @@ export default function WalletPage() {
             </DialogContent>
           </Dialog>
           <Button asChild variant="outline" className="bg-white/10 border-white/30 text-primary-foreground hover:bg-white/20">
-            <a href="/dashboard/withdrawals"><ArrowDownLeft className="h-4 w-4 mr-1" /> Withdraw</a>
+            <Link to="/dashboard/withdrawals"><ArrowDownLeft className="h-4 w-4 mr-1" /> Withdraw</Link>
           </Button>
         </div>
       </Card>

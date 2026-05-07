@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { verifyPaystackPayment } from "@/lib/paystack";
 
 export default function PaymentSuccess() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { state } = useStore();
   const [params] = useSearchParams();
@@ -73,13 +74,13 @@ export default function PaymentSuccess() {
   useEffect(() => {
     if (!redirectTo || verifying) return;
     if (redirectSeconds <= 0) {
-      window.location.assign(redirectTo);
+      navigate(redirectTo, { replace: true });
       return;
     }
 
     const timer = setTimeout(() => setRedirectSeconds((s) => s - 1), 1000);
     return () => clearTimeout(timer);
-  }, [redirectTo, redirectSeconds, verifying]);
+  }, [redirectTo, redirectSeconds, verifying, navigate]);
 
   useEffect(() => {
     if (!reference || purpose !== "order") return;
