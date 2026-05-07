@@ -374,7 +374,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         agent_id: req.agentId,
         amount: req.amount,
         momo_number: req.momoNumber,
-        network: req.network,
+        momo_network: req.network,
         account_name: req.accountName,
         status: "pending",
       });
@@ -446,7 +446,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       if (/^[0-9a-f-]{36}$/i.test(c.id)) {
         void supabase.from("checker_packages").update({
-          type: c.type,
+          checker_type: c.type,
           price_public: c.pricePublic,
           price_agent: c.priceAgent,
           stock: c.stock,
@@ -626,25 +626,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     updateSettings: (patch) => {
       setState((st) => ({ ...st, settings: { ...st.settings, ...patch } }));
-      const row: {
-        site_name?: string;
-        whatsapp_number?: string;
-        whatsapp_channel_link?: string;
-        agent_fee?: number;
-        min_withdrawal?: number;
-        maintenance_mode?: boolean;
-        maintenance_message?: string;
-        banner?: string;
-      } = {};
-      if (patch.siteName !== undefined) row.site_name = patch.siteName;
-      if (patch.whatsappNumber !== undefined) row.whatsapp_number = patch.whatsappNumber;
-      if (patch.whatsappChannelLink !== undefined) row.whatsapp_channel_link = patch.whatsappChannelLink;
-      if (patch.agentFee !== undefined) row.agent_fee = patch.agentFee;
-      if (patch.minWithdrawal !== undefined) row.min_withdrawal = patch.minWithdrawal;
-      if (patch.maintenanceMode !== undefined) row.maintenance_mode = patch.maintenanceMode;
-      if (patch.maintenanceMessage !== undefined) row.maintenance_message = patch.maintenanceMessage;
-      if (patch.banner !== undefined) row.banner = patch.banner;
-      if (Object.keys(row).length) void supabase.from("site_settings").update(row).eq("id", 1);
+      const updates: Array<{ key: string; value: unknown }> = [];
+      if (patch.siteName !== undefined) updates.push({ key: "site_name", value: patch.siteName });
+      if (patch.whatsappNumber !== undefined) updates.push({ key: "whatsapp_number", value: patch.whatsappNumber });
+      if (patch.whatsappChannelLink !== undefined) updates.push({ key: "whatsapp_channel", value: patch.whatsappChannelLink });
+      if (patch.agentFee !== undefined) updates.push({ key: "agent_fee", value: patch.agentFee });
+      if (patch.agentActivationFee !== undefined) updates.push({ key: "agent_activation_fee", value: patch.agentActivationFee });
+      if (patch.minWithdrawal !== undefined) updates.push({ key: "min_withdrawal", value: patch.minWithdrawal });
+      if (patch.maintenanceMode !== undefined) updates.push({ key: "maintenance_mode", value: patch.maintenanceMode });
+      if (patch.maintenanceMessage !== undefined) updates.push({ key: "maintenance_message", value: patch.maintenanceMessage });
+      if (patch.banner !== undefined) updates.push({ key: "banner", value: patch.banner ?? null });
+
+      if (updates.length > 0) {
+        void supabase.from("site_settings").upsert(
+          updates.map((u) => ({ key: u.key, value: u.value })),
+          { onConflict: "key" },
+        );
+      }
     },
 
     regenerateApiKey: (userId) => {

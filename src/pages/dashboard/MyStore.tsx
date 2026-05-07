@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore } from "@/lib/store";
+import { supabase } from "@/integrations/supabase/client";
 import { Copy, ExternalLink, Share2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -28,8 +29,28 @@ export default function MyStore() {
   const url = `${window.location.origin}/store/${currentUser.storeSlug}`;
   const refLink = `${window.location.origin}/become-agent?ref=${currentUser.referralCode}`;
 
-  const update = (patch: Partial<typeof currentUser>) =>
+  const update = (patch: Partial<typeof currentUser>) => {
     setState((s) => ({ ...s, users: s.users.map((u) => (u.id === currentUser.id ? { ...u, ...patch } : u)) }));
+
+    const profilePatch: Record<string, unknown> = {};
+    if (patch.storeBrand !== undefined) profilePatch.store_brand = patch.storeBrand;
+    if (patch.storeLogo !== undefined) profilePatch.store_logo = patch.storeLogo;
+    if (patch.storeTemplate !== undefined) profilePatch.store_template = patch.storeTemplate;
+
+    if (Object.keys(profilePatch).length > 0) {
+      void supabase.from("profiles").update(profilePatch).eq("id", currentUser.id);
+    }
+
+    const storePatch: Record<string, unknown> = { agent_id: currentUser.id };
+    if (currentUser.storeSlug) storePatch.slug = currentUser.storeSlug;
+    if (patch.storeBrand !== undefined) storePatch.brand_name = patch.storeBrand;
+    if (patch.storeLogo !== undefined) storePatch.logo_url = patch.storeLogo;
+    if (patch.storeTemplate !== undefined) storePatch.template = patch.storeTemplate;
+
+    if (Object.keys(storePatch).length > 1 && storePatch.slug) {
+      void supabase.from("stores").upsert(storePatch, { onConflict: "agent_id" });
+    }
+  };
 
   const copy = (txt: string, label: string) => {
     navigator.clipboard.writeText(txt);
