@@ -225,34 +225,39 @@ export function AdminAgents() {
 
   const setActivationAccess = async (userId: string, allow: boolean) => {
     setUpdatingActivation(userId);
-    const patch = {
-      agent_activated: allow,
-      activation_paid_at: allow ? new Date().toISOString() : null,
-    };
 
-    const { error } = await supabase
-      .from("profiles")
-      .update(patch)
-      .eq("id", userId)
-      .eq("role", "agent");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
 
-    if (error) {
-      toast.error(error.message || "Unable to update activation access");
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-set-activation`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId: userId, allow }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Update failed");
+
+      setState((s) => ({
+        ...s,
+        users: s.users.map((u) =>
+          u.id === userId
+            ? { ...u, agentActivated: allow, activationPaidAt: allow ? new Date().toISOString() : undefined }
+            : u,
+        ),
+      }));
+
+      toast.success(allow ? "Agent access granted" : "Activation access removed");
+    } catch (err: any) {
+      toast.error(err?.message || "Unable to update activation access");
+    } finally {
       setUpdatingActivation(null);
-      return;
     }
-
-    setState((s) => ({
-      ...s,
-      users: s.users.map((u) =>
-        u.id === userId
-          ? { ...u, agentActivated: allow, activationPaidAt: patch.activation_paid_at ?? undefined }
-          : u,
-      ),
-    }));
-
-    toast.success(allow ? "Agent access granted without payment" : "Activation access removed");
-    setUpdatingActivation(null);
   };
 
   return (
