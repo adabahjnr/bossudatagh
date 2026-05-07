@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Copy, Check } from "lucide-react";
@@ -9,6 +10,7 @@ import { toast } from "sonner";
 import { verifyPaystackPayment } from "@/lib/paystack";
 
 export default function PaymentSuccess() {
+  const { user } = useAuth();
   const { state } = useStore();
   const [params] = useSearchParams();
   // Keep support for common reference query names.
@@ -17,6 +19,9 @@ export default function PaymentSuccess() {
   const [order, setOrder] = useState<Record<string, unknown> | null>(null);
   const [copied, setCopied] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+  const [redirectSeconds, setRedirectSeconds] = useState(5);
+  const [successSummary, setSuccessSummary] = useState<string | null>(null);
 
   useEffect(() => {
     if (!reference) return;
@@ -34,24 +39,47 @@ export default function PaymentSuccess() {
 
       if (data?.purpose === "agent_activation") {
         toast.success("Agent account activated successfully");
-        window.location.href = "/dashboard";
+        setSuccessSummary("Your agent account is now active.");
+        setRedirectTo("/dashboard");
+        setRedirectSeconds(5);
+        setVerifying(false);
         return;
       }
 
       if (data?.purpose === "wallet_topup") {
         toast.success("Wallet funded successfully");
-        window.location.href = "/dashboard/wallet";
+        setSuccessSummary("Your wallet has been funded successfully.");
+        setRedirectTo("/dashboard/wallet");
+        setRedirectSeconds(5);
+        setVerifying(false);
         return;
       }
 
       if (data?.order) {
         setOrder(data.order);
+        // If user is signed in, return them to dashboard after showing success.
+        if (user) {
+          setSuccessSummary("Your data purchase is being processed.");
+          setRedirectTo("/dashboard");
+          setRedirectSeconds(6);
+        }
       }
       setVerifying(false);
     };
 
     void verify();
-  }, [reference]);
+  }, [reference, user]);
+
+  useEffect(() => {
+    if (!redirectTo || verifying) return;
+    if (redirectSeconds <= 0) {
+      window.location.assign(redirectTo);
+      return;
+    }
+
+    const timer = setTimeout(() => setRedirectSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [redirectTo, redirectSeconds, verifying]);
 
   useEffect(() => {
     if (!reference || purpose !== "order") return;
@@ -89,6 +117,14 @@ export default function PaymentSuccess() {
               <span className="font-medium text-foreground">{String(order.product_label)}</span>{" "}
               is being delivered to{" "}
               <span className="font-medium text-foreground">{String(order.recipient)}</span>.
+            </p>
+          )}
+          {!order && successSummary && (
+            <p className="text-muted-foreground mt-1.5 text-sm">{successSummary}</p>
+          )}
+          {redirectTo && !verifying && (
+            <p className="text-xs text-muted-foreground mt-3">
+              Redirecting in {redirectSeconds}s...
             </p>
           )}
         </div>
@@ -143,6 +179,11 @@ export default function PaymentSuccess() {
         )}
 
         <div className="mt-6 flex gap-3">
+          {redirectTo && !verifying && (
+            <Button asChild variant="secondary" className="flex-1">
+              <Link to={redirectTo}>Continue</Link>
+            </Button>
+          )}
           <Button asChild variant="outline" className="flex-1">
             <Link to={`/track${order?.ref ? `?ref=${String(order.ref)}` : ""}`}>Track Order</Link>
           </Button>
