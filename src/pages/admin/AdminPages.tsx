@@ -19,25 +19,7 @@ import { TrendingUp, ShoppingBag, Users, AlertCircle, DollarSign, Copy, Plus, Tr
 /* ================= OVERVIEW ================= */
 export function AdminOverview() {
   const { state } = useStore();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from("orders")
-      .select("id,ref,product_label,network,recipient_phone,amount,status,created_at,agent_id")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setOrders(
-          (data ?? []).map((row: any) => ({
-            id: row.id, ref: row.ref, productLabel: row.product_label,
-            network: row.network, recipient: row.recipient_phone, amount: Number(row.amount),
-            status: row.status, createdAt: row.created_at, agentId: row.agent_id,
-          }))
-        );
-        setLoadingOrders(false);
-      });
-  }, []);
+  const orders = state.orders;
 
   const totalRevenue = orders.filter((o) => o.status === "delivered").reduce((s, o) => s + o.amount, 0);
   const activeAgents = state.users.filter((u) => u.role === "agent" && u.active).length;
@@ -53,11 +35,11 @@ export function AdminOverview() {
   });
 
   const stats = [
-    { label: "Revenue", value: loadingOrders ? "…" : cedi(totalRevenue), icon: DollarSign, color: "bg-gradient-primary" },
-    { label: "Orders", value: loadingOrders ? "…" : orders.length, icon: ShoppingBag, color: "bg-gradient-gold" },
+    { label: "Revenue", value: cedi(totalRevenue), icon: DollarSign, color: "bg-gradient-primary" },
+    { label: "Orders", value: orders.length, icon: ShoppingBag, color: "bg-gradient-gold" },
     { label: "Active agents", value: activeAgents, icon: Users, color: "bg-success" },
     { label: "Pending withdrawals", value: pendingW, icon: TrendingUp, color: "bg-warning" },
-    { label: "Failed orders", value: loadingOrders ? "…" : failed, icon: AlertCircle, color: "bg-destructive" },
+    { label: "Failed orders", value: failed, icon: AlertCircle, color: "bg-destructive" },
   ];
 
   return (
@@ -478,6 +460,10 @@ export function AdminNotifications() {
 export function AdminSettings() {
   const { state, updateSettings } = useStore();
   const [s, setS] = useState(state.settings);
+  useEffect(() => {
+    setS(state.settings);
+  }, [state.settings]);
+
   const save = () => { updateSettings(s); toast.success("Settings saved"); };
   return (
     <div className="space-y-4 max-w-2xl">
@@ -486,8 +472,9 @@ export function AdminSettings() {
         <div><Label>Site name</Label><Input value={s.siteName} onChange={(e) => setS({ ...s, siteName: e.target.value })} /></div>
         <div><Label>WhatsApp number (intl format)</Label><Input value={s.whatsappNumber} onChange={(e) => setS({ ...s, whatsappNumber: e.target.value })} placeholder="233244000000" /></div>
         <div><Label>WhatsApp channel link (used by floating button)</Label><Input value={s.whatsappChannelLink ?? ""} onChange={(e) => setS({ ...s, whatsappChannelLink: e.target.value })} placeholder="https://whatsapp.com/channel/..." /></div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div><Label>Agent fee (₵)</Label><Input type="number" value={s.agentFee} onChange={(e) => setS({ ...s, agentFee: parseFloat(e.target.value) || 0 })} /></div>
+          <div><Label>Activation fee (₵)</Label><Input type="number" value={s.agentActivationFee} onChange={(e) => setS({ ...s, agentActivationFee: parseFloat(e.target.value) || 0 })} /></div>
           <div><Label>Min withdrawal (₵)</Label><Input type="number" value={s.minWithdrawal} onChange={(e) => setS({ ...s, minWithdrawal: parseFloat(e.target.value) || 0 })} /></div>
         </div>
         <Button onClick={save}>Save</Button>
@@ -500,6 +487,10 @@ export function AdminSettings() {
 export function AdminMaintenance() {
   const { state, updateSettings } = useStore();
   const [msg, setMsg] = useState(state.settings.maintenanceMessage);
+  useEffect(() => {
+    setMsg(state.settings.maintenanceMessage);
+  }, [state.settings.maintenanceMessage]);
+
   return (
     <div className="space-y-4 max-w-2xl">
       <h1 className="text-2xl font-bold">Maintenance Mode</h1>
