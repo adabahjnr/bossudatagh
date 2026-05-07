@@ -593,14 +593,113 @@ export function AdminMaintenance() {
   );
 }
 
+/* ================= RESULT CHECKERS ================= */
+export function AdminCheckers() {
+  const { state, upsertChecker } = useStore();
+  const [open, setOpen] = useState(false);
+  const [edit, setEdit] = useState<CheckerPackage | null>(null);
+  const [pins, setPins] = useState("");
+  const blank = (): CheckerPackage => ({ id: "ck-" + Math.random().toString(36).slice(2, 8), type: "BECE", pricePublic: 0, priceAgent: 0, stock: 0, active: true });
+  const [form, setForm] = useState<CheckerPackage>(blank());
+
+  const openNew = () => { setEdit(null); setForm(blank()); setPins(""); setOpen(true); };
+  const openEdit = (c: CheckerPackage) => { setEdit(c); setForm(c); setPins(""); setOpen(true); };
+  const save = () => {
+    const pinLines = pins.split("\n").map((l) => l.trim()).filter(Boolean);
+    const pinCount = pinLines.length;
+    upsertChecker({ ...form, stock: form.stock + pinCount });
+    toast.success(edit ? `Checker updated${pinCount ? ` · ${pinCount} PINs added` : ""}` : "Checker added");
+    setOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Result Checkers</h1>
+        <Button onClick={openNew}><Plus className="h-4 w-4 mr-1" /> Add checker</Button>
+      </div>
+      <Card className="overflow-x-auto shadow-soft">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="text-left p-3">Type</th>
+              <th className="text-left p-3">Public price</th>
+              <th className="text-left p-3">Agent price</th>
+              <th className="text-left p-3">Stock</th>
+              <th className="text-left p-3">Active</th>
+              <th className="text-right p-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {state.checkers.length === 0 ? (
+              <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No checkers configured yet.</td></tr>
+            ) : state.checkers.map((c) => (
+              <tr key={c.id} className="border-t border-border">
+                <td className="p-3 font-medium">
+                  <Badge variant="outline">{c.type}</Badge>
+                </td>
+                <td className="p-3">{cedi(c.pricePublic)}</td>
+                <td className="p-3">{cedi(c.priceAgent)}</td>
+                <td className="p-3">
+                  <span className={c.stock < 5 ? "text-destructive font-semibold" : ""}>{c.stock} left</span>
+                </td>
+                <td className="p-3"><Switch checked={c.active} onCheckedChange={(v) => upsertChecker({ ...c, active: v })} /></td>
+                <td className="p-3 text-right">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(c)}>Edit / Add PINs</Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{edit ? "Edit" : "Add"} Result Checker</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Exam type</Label>
+              <Select value={form.type} onValueChange={(v: "BECE" | "WASSCE") => setForm({ ...form, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="BECE">BECE</SelectItem>
+                  <SelectItem value="WASSCE">WASSCE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Public price (₵)</Label><Input type="number" value={form.pricePublic} onChange={(e) => setForm({ ...form, pricePublic: parseFloat(e.target.value) || 0 })} /></div>
+              <div><Label>Agent price (₵)</Label><Input type="number" value={form.priceAgent} onChange={(e) => setForm({ ...form, priceAgent: parseFloat(e.target.value) || 0 })} /></div>
+            </div>
+            <div>
+              <Label>Upload PINs (one per line)</Label>
+              <Textarea
+                placeholder={`PIN001\nPIN002\nPIN003`}
+                value={pins}
+                onChange={(e) => setPins(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {pins.split("\n").filter((l) => l.trim()).length} PINs will be added to stock.
+              </p>
+            </div>
+            <Button className="w-full" onClick={save}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 /* ================= LAZY-LOADABLE DEFAULT EXPORT ================= */
-type AdminSection = "overview" | "orders" | "packages" | "agents" | "withdrawals" | "campaigns" | "notifications" | "settings" | "maintenance";
+type AdminSection = "overview" | "orders" | "packages" | "checkers" | "agents" | "withdrawals" | "campaigns" | "notifications" | "settings" | "maintenance";
 
 export default function AdminPages({ section }: { section: AdminSection }) {
   switch (section) {
     case "overview": return <AdminOverview />;
     case "orders": return <AdminOrders />;
     case "packages": return <AdminPackages />;
+    case "checkers": return <AdminCheckers />;
     case "agents": return <AdminAgents />;
     case "withdrawals": return <AdminWithdrawals />;
     case "campaigns": return <AdminCampaigns />;

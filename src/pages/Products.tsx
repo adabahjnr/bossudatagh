@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cedi, sizeToMB } from "@/lib/format";
 import { PurchaseDialog } from "@/components/PurchaseDialog";
-import type { DataPackage, Network } from "@/lib/types";
-import { Smartphone } from "lucide-react";
+import type { CheckerPackage, DataPackage, Network } from "@/lib/types";
+import { Smartphone, BookOpen } from "lucide-react";
 
 const NETWORKS: Network[] = ["MTN", "Telecel", "AirtelTigo"];
 
@@ -52,7 +52,7 @@ export default function Products() {
   const [params, setParams] = useSearchParams();
   const network = (params.get("network") as Network | null) ?? "MTN";
 
-  const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | null>(null);
+  const [purchase, setPurchase] = useState<{ kind: "data"; pkg: DataPackage } | { kind: "checker"; pkg: CheckerPackage } | null>(null);
   const packages = useMemo(
     () =>
       state.packages
@@ -69,9 +69,10 @@ export default function Products() {
         <p className="mt-2 text-muted-foreground">No signup required. Pay and receive in seconds.</p>
       </div>
 
-      <Tabs value="data" onValueChange={(v) => setParams({ tab: v, network })}>
+      <Tabs value={params.get("tab") ?? "data"} onValueChange={(v) => setParams({ tab: v, network })}>
         <TabsList className="mx-auto mb-8 flex w-fit">
           <TabsTrigger value="data"><Smartphone className="h-4 w-4 mr-2" /> Data Bundles</TabsTrigger>
+          <TabsTrigger value="checkers"><BookOpen className="h-4 w-4 mr-2" /> Result Checkers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="data">
@@ -109,6 +110,39 @@ export default function Products() {
               );
             })}
             {packages.length === 0 && <p className="text-muted-foreground col-span-full text-center">No packages available right now.</p>}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="checkers">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {state.checkers.filter((c) => c.active).map((c) => (
+              <Card key={c.id} className="p-6 shadow-soft transition-smooth hover:shadow-elegant hover:-translate-y-0.5 bg-gradient-to-br from-card to-secondary border-border">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-primary text-primary-foreground">
+                    <BookOpen className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg">{c.type} Checker</div>
+                    <div className="text-xs text-muted-foreground">{c.stock} in stock</div>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Price</div>
+                    <div className="text-2xl font-bold text-accent">{cedi(c.pricePublic)}</div>
+                  </div>
+                  <Button
+                    disabled={c.stock === 0}
+                    onClick={() => setPurchase({ kind: "checker", pkg: c })}
+                  >
+                    {c.stock === 0 ? "Out of stock" : "Buy"}
+                  </Button>
+                </div>
+              </Card>
+            ))}
+            {state.checkers.filter((c) => c.active).length === 0 && (
+              <p className="text-muted-foreground col-span-full text-center">No checkers available right now.</p>
+            )}
           </div>
         </TabsContent>
       </Tabs>

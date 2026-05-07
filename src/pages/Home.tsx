@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowRight, Shield, Wallet, Zap, Smartphone, Users, Star } from "lucide-react";
+import { ArrowRight, Shield, Wallet, Zap, Smartphone, Users, Star, BookOpen } from "lucide-react";
 
 const products = [
   { title: "MTN Data", color: "from-yellow-400 to-yellow-600", icon: Smartphone, desc: "Fast MTN bundles, instant delivery", to: "/products?network=MTN" },
   { title: "Telecel Data", color: "from-red-500 to-red-700", icon: Smartphone, desc: "Affordable Telecel bundles", to: "/products?network=Telecel" },
   { title: "AirtelTigo Data", color: "from-blue-500 to-blue-700", icon: Smartphone, desc: "Smooth AirtelTigo offers", to: "/products?network=AirtelTigo" },
+  { title: "Result Checkers", color: "from-purple-500 to-purple-700", icon: BookOpen, desc: "BECE & WASSCE result checkers", to: "/products?tab=checkers" },
 ];
 
 const testimonials = [

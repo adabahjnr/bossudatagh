@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
 import {
   LayoutDashboard, Wallet, ShoppingCart, Store,
-  ArrowDownToLine, Trophy, Code2, Settings, LogOut, Package,
+  ArrowDownToLine, Trophy, Code2, Settings, LogOut, Package, Users, Palette,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -21,6 +21,8 @@ const allItems = [
   { title: "Buy products", url: "/dashboard/buy", icon: ShoppingCart, roles: ["agent", "subagent"] },
   { title: "My Store", url: "/dashboard/store", icon: Store, roles: ["agent"] },
   { title: "Store Packages", url: "/dashboard/store/packages", icon: Package, roles: ["agent"] },
+  { title: "Sub-agents", url: "/dashboard/subagents", icon: Users, roles: ["agent"] },
+  { title: "Flyer Generator", url: "/dashboard/flyer", icon: Palette, roles: ["agent", "subagent"] },
   { title: "Withdrawals", url: "/dashboard/withdrawals", icon: ArrowDownToLine, roles: ["agent", "subagent"] },
   { title: "Leaderboard", url: "/dashboard/leaderboard", icon: Trophy, roles: ["agent", "subagent"] },
   { title: "API & Docs", url: "/dashboard/api", icon: Code2, roles: ["agent"] },

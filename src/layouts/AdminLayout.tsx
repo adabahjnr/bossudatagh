@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   LayoutDashboard, ShoppingBag, Package, Users,
-  ArrowDownToLine, Bell, Gift, Settings, LogOut, Wrench,
+  ArrowDownToLine, Bell, Gift, Settings, LogOut, Wrench, CheckSquare,
 } from "lucide-react";
 
 const items = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { to: "/admin/packages", label: "Data Packages", icon: Package },
+  { to: "/admin/checkers", label: "Result Checkers", icon: CheckSquare },
   { to: "/admin/agents", label: "Agents", icon: Users },
   { to: "/admin/withdrawals", label: "Withdrawals", icon: ArrowDownToLine },
   { to: "/admin/campaigns", label: "Free Data", icon: Gift },

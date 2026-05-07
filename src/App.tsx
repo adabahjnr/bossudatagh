@@ -37,6 +37,8 @@ const Withdrawals = lazy(() => import("@/pages/dashboard/Withdrawals"));
 const Leaderboard = lazy(() => import("@/pages/dashboard/Leaderboard"));
 const ApiDocs = lazy(() => import("@/pages/dashboard/ApiDocs"));
 const AccountSettings = lazy(() => import("@/pages/dashboard/AccountSettings"));
+const Subagents = lazy(() => import("@/pages/dashboard/Subagents"));
+const FlyerGenerator = lazy(() => import("@/pages/dashboard/FlyerGenerator"));
 
 const AdminPages = lazy(() => import("@/pages/admin/AdminPages"));
 
@@ -82,6 +84,8 @@ const App = () => (
                       <Route path="store/packages" element={<StorePackages />} />
                       <Route path="withdrawals" element={<Withdrawals />} />
                       <Route path="leaderboard" element={<Leaderboard />} />
+                      <Route path="subagents" element={<Subagents />} />
+                      <Route path="flyer" element={<FlyerGenerator />} />
                       <Route path="api" element={<ApiDocs />} />
                       <Route path="settings" element={<AccountSettings />} />
                     </Route>
@@ -97,6 +101,7 @@ const App = () => (
                       <Route path="campaigns" element={<AdminPages section="campaigns" />} />
                       <Route path="notifications" element={<AdminPages section="notifications" />} />
                       <Route path="settings" element={<AdminPages section="settings" />} />
+                      <Route path="checkers" element={<AdminPages section="checkers" />} />
                       <Route path="maintenance" element={<AdminPages section="maintenance" />} />
                     </Route>
                     <Route path="*" element={<NotFound />} />
