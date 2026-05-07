@@ -399,7 +399,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      if (error) return { error: error.message };
+      if (error) {
+        if (error.message === "Database error saving new user") {
+          return { error: "Could not create account. The store URL may already be in use. Please choose a different store URL." };
+        }
+        return { error: error.message };
+      }
 
       return { error: null };
     } catch (e: any) {

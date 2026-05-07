@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Check, Wallet, Users, Code, Store } from "lucide-react";
 
@@ -25,12 +26,24 @@ export default function BecomeAgent() {
     }
 
     setPending(true);
+    const slug = form.storeSlug.toLowerCase();
+
+    // Preflight check to avoid the generic auth "Database error saving new user" on duplicate slug.
+    const { data: slugAvailable, error: slugCheckError } = await supabase.rpc("is_store_slug_available", {
+      p_slug: slug,
+    });
+    if (!slugCheckError && slugAvailable === false) {
+      setPending(false);
+      toast.error("Store URL is already taken. Please choose another one.");
+      return;
+    }
+
     const { error } = await signUp({
       email: form.email,
       password: form.password,
       name: form.name,
       phone: form.phone,
-      storeSlug: form.storeSlug.toLowerCase(),
+      storeSlug: slug,
     });
     setPending(false);
     if (error) {
