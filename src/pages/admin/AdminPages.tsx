@@ -89,10 +89,55 @@ export function AdminOverview() {
 }
 
 /* ================= ORDERS ================= */
+/* ================= ORDERS ================= */
 export function AdminOrders() {
-  const { state } = useStore();
+  const { state, setState } = useStore();
   const [filter, setFilter] = useState<"all" | OrderStatus>("all");
+  const [retrying, setRetrying] = useState<string | null>(null);
   const list = state.orders.filter((o) => filter === "all" || o.status === filter);
+
+  const retryOrder = async (ref: string) => {
+    setRetrying(ref);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-retry-order`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ref }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? "Retry failed");
+
+      const resultStatus = json?.result?.status ?? "processing";
+      const resultError = json?.result?.errorMessage ?? null;
+
+      setState((s) => ({
+        ...s,
+        orders: s.orders.map((o) =>
+          o.ref === ref
+            ? { ...o, status: resultStatus, fulfillmentErrorMessage: resultError ?? undefined }
+            : o,
+        ),
+      }));
+
+      if (resultStatus === "delivered") {
+        toast.success(`Order ${ref} delivered successfully`);
+      } else {
+        toast.error(`Retry attempted — still failed: ${resultError ?? "unknown error"}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Retry failed");
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -112,18 +157,49 @@ export function AdminOrders() {
       <Card className="overflow-x-auto shadow-soft">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
-            <tr><th className="text-left p-3">Ref</th><th className="text-left p-3">Product</th><th className="text-left p-3">Recipient</th><th className="text-left p-3">Amount</th><th className="text-left p-3">Status</th><th className="text-left p-3">Date</th><th className="text-right p-3">Actions</th></tr>
+            <tr>
+              <th className="text-left p-3">Ref</th>
+              <th className="text-left p-3">Product</th>
+              <th className="text-left p-3">Recipient</th>
+              <th className="text-left p-3">Amount</th>
+              <th className="text-left p-3">Status</th>
+              <th className="text-left p-3">Date</th>
+              <th className="text-right p-3">Actions</th>
+            </tr>
           </thead>
           <tbody>
+            {list.length === 0 && (
+              <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No orders found</td></tr>
+            )}
             {list.map((o: Order) => (
               <tr key={o.id} className="border-t border-border">
                 <td className="p-3 font-mono text-xs">{o.ref}</td>
                 <td className="p-3">{o.productLabel}</td>
                 <td className="p-3">{o.recipient}</td>
                 <td className="p-3 font-medium">{cedi(o.amount)}</td>
-                <td className="p-3"><Badge variant={o.status === "delivered" ? "default" : o.status === "failed" ? "destructive" : "secondary"}>{o.status}</Badge></td>
+                <td className="p-3">
+                  <div className="space-y-1">
+                    <Badge variant={o.status === "delivered" ? "default" : o.status === "failed" ? "destructive" : "secondary"}>
+                      {o.status}
+                    </Badge>
+                    {o.fulfillmentErrorMessage && (
+                      <p className="text-xs text-destructive max-w-[200px] break-words">{o.fulfillmentErrorMessage}</p>
+                    )}
+                  </div>
+                </td>
                 <td className="p-3 text-xs text-muted-foreground">{shortDate(o.createdAt)}</td>
-                <td className="p-3 text-right text-xs text-muted-foreground">No actions</td>
+                <td className="p-3 text-right">
+                  {(o.status === "failed" || o.status === "processing") && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={retrying === o.ref}
+                      onClick={() => void retryOrder(o.ref)}
+                    >
+                      {retrying === o.ref ? "Retrying..." : "Retry"}
+                    </Button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
