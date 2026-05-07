@@ -57,6 +57,160 @@ export function SupabaseDataBridge() {
     let mounted = true;
 
     const syncAll = async () => {
+      // For admins, prefer the server-side consolidated snapshot so dashboard data
+      // remains complete even when client-side RLS allows only partial reads.
+      if (roles.includes("admin")) {
+        const { data: adminData, error: adminDataError } = await supabase.functions.invoke("admin-dashboard-data");
+        if (!adminDataError && adminData && mounted) {
+          const storesByAgent = new Map<string, { slug: string | null; brand_name: string | null; logo_url: string | null; template: string | null }>();
+          (adminData.stores ?? []).forEach((row: any) => {
+            storesByAgent.set(row.agent_id, {
+              slug: row.slug ?? null,
+              brand_name: row.brand_name ?? null,
+              logo_url: row.logo_url ?? null,
+              template: row.template ?? null,
+            });
+          });
+
+          const users: User[] = (adminData.profiles ?? []).map((row: any) => {
+            const store = storesByAgent.get(row.id);
+            const role = row.role === "admin" ? "admin" : row.role === "subagent" ? "subagent" : "agent";
+            return {
+              id: row.id,
+              name: row.name ?? "Agent",
+              email: "",
+              phone: row.phone ?? "",
+              role,
+              walletBalance: Number(row.wallet_balance ?? 0),
+              storeSlug: store?.slug ?? row.store_slug ?? undefined,
+              storeTemplate: (store?.template ?? row.store_template ?? "neon") as User["storeTemplate"],
+              storeLogo: store?.logo_url ?? row.store_logo ?? undefined,
+              storeBrand: store?.brand_name ?? row.store_brand ?? undefined,
+              parentAgentId: row.parent_agent_id ?? undefined,
+              apiKey: row.api_key ?? undefined,
+              referralCode: row.referral_code ?? undefined,
+              totalSales: Number(row.total_sales ?? 0),
+              totalReferrals: Number(row.total_referrals ?? 0),
+              badges: Array.isArray(row.badges) ? row.badges : [],
+              agentActivated: row.agent_activated ?? false,
+              activationPaidAt: row.activation_paid_at ?? undefined,
+              createdAt: row.created_at ?? new Date().toISOString(),
+              active: row.active ?? true,
+            };
+          });
+
+          const packages: DataPackage[] = (adminData.bundles ?? []).map((row: any) => ({
+            id: row.id,
+            network: mapNetwork(row.network),
+            size: String(row.label ?? ""),
+            validity: row.validity_days ? `${row.validity_days} days` : "Non-expiry",
+            pricePublic: Number(row.price_public ?? 0),
+            priceAgent: Number(row.price_agent ?? 0),
+            active: row.active ?? true,
+          }));
+
+          const agentStorePackages: AgentStorePackage[] = (adminData.agentPackages ?? [])
+            .filter((row: any) => Boolean(row.bundle_id))
+            .map((row: any) => ({
+              id: row.id,
+              agentId: row.agent_id,
+              packageId: row.bundle_id,
+              salePrice: Number(row.sale_price ?? 0),
+              active: row.active ?? true,
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+            }));
+
+          const checkers: CheckerPackage[] = (adminData.checkers ?? []).map((row: any) => ({
+            id: row.id,
+            type: row.checker_type,
+            pricePublic: Number(row.price_public ?? 0),
+            priceAgent: Number(row.price_agent ?? 0),
+            stock: Number(row.stock ?? 0),
+            active: row.active ?? true,
+          }));
+
+          const orders: Order[] = (adminData.orders ?? []).map((row: any) => ({
+            id: row.id,
+            ref: row.ref,
+            productLabel: row.product_label,
+            network: row.network ? mapNetwork(row.network) : undefined,
+            recipient: row.recipient_phone,
+            email: row.guest_email ?? undefined,
+            amount: Number(row.amount ?? 0),
+            status: row.status,
+            fulfillmentErrorMessage: row.fulfillment_error ?? undefined,
+            createdAt: row.created_at,
+            buyerType: row.buyer_type === "agent" || row.buyer_type === "subagent" ? row.buyer_type : "public",
+            agentId: row.agent_id ?? undefined,
+          }));
+
+          const withdrawals: WithdrawalRequest[] = (adminData.withdrawals ?? []).map((row: any) => ({
+            id: row.id,
+            agentId: row.agent_id,
+            agentName: row.profiles?.name ?? "Unknown",
+            amount: Number(row.amount ?? 0),
+            momoNumber: row.momo_number,
+            network: mapNetwork(row.momo_network),
+            accountName: row.account_name,
+            status: row.status,
+            createdAt: row.created_at,
+          }));
+
+          const codesByCampaign = new Map<string, Array<{ code: string; redeemed: boolean; redeemedBy?: string }>>();
+          (adminData.codes ?? []).forEach((row: any) => {
+            const list = codesByCampaign.get(row.campaign_id) ?? [];
+            list.push({
+              code: row.code,
+              redeemed: row.redeemed ?? false,
+              redeemedBy: row.redeemed_by ?? undefined,
+            });
+            codesByCampaign.set(row.campaign_id, list);
+          });
+
+          const campaigns: FreeDataCampaign[] = (adminData.campaigns ?? []).map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            dataSize: row.data_size,
+            network: mapNetwork(row.network),
+            totalCodes: Number(row.total_codes ?? 0),
+            redeemed: Number(row.redeemed_count ?? 0),
+            codes: codesByCampaign.get(row.id) ?? [],
+            active: row.active ?? true,
+            createdAt: row.created_at,
+          }));
+
+          const notifications: Notification[] = (adminData.notifications ?? []).map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            message: row.message,
+            type: row.type,
+            audience: row.audience,
+            createdAt: row.created_at,
+          }));
+
+          const settings = parseSettings(adminData.settings ?? []);
+
+          setState((prev) => ({
+            ...prev,
+            users,
+            packages,
+            agentStorePackages,
+            checkers,
+            orders,
+            withdrawals,
+            campaigns,
+            notifications,
+            settings,
+          }));
+          return;
+        }
+
+        if (adminDataError) {
+          console.error("[SupabaseDataBridge] admin-dashboard-data failed, falling back to client queries", adminDataError);
+        }
+      }
+
       let [
         profilesRes,
         storesRes,
@@ -99,8 +253,7 @@ export function SupabaseDataBridge() {
         settingsRes,
       ].some((r) => Boolean(r.error));
 
-      // Admin fallback: if any direct query fails (often due RLS/policy drift),
-      // fetch a consolidated snapshot from a verified admin edge function.
+      // Secondary admin fallback in case client queries fail.
       if (roles.includes("admin") && hadClientQueryError) {
         const { data: adminData, error: adminDataError } = await supabase.functions.invoke("admin-dashboard-data");
         if (!adminDataError && adminData) {

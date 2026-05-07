@@ -44,13 +44,30 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const authRoles = new Set<string>();
+    const appMeta = (user.app_metadata ?? {}) as Record<string, unknown>;
+    const userMeta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const roleCandidates = [appMeta.role, appMeta.user_role, appMeta.roles, userMeta.role, userMeta.user_role];
+    for (const candidate of roleCandidates) {
+      if (Array.isArray(candidate)) {
+        for (const item of candidate) {
+          if (typeof item === "string") authRoles.add(item.trim().toLowerCase());
+        }
+      } else if (typeof candidate === "string") {
+        authRoles.add(candidate.trim().toLowerCase());
+      }
+    }
+
     const { data: profile, error: profileError } = await adminClient
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (profileError || profile?.role !== "admin") {
+    const isAdminByProfile = profile?.role === "admin";
+    const isAdminByAuth = authRoles.has("admin");
+
+    if (profileError || (!isAdminByProfile && !isAdminByAuth)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
