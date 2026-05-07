@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,17 +10,33 @@ import { CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { cedi } from "@/lib/format";
 
 export default function ActivateAgent() {
-  const { user, profile } = useAuth();
+  const { user, profile, roles, loading, refreshProfile } = useAuth();
   const { state } = useStore();
-  const nav = useNavigate();
   const [paying, setPaying] = useState(false);
 
   const activationFee = state.settings.agentActivationFee ?? 50;
 
-  if (!user || profile?.role !== "agent" || profile?.agent_activated) {
-    nav("/dashboard", { replace: true });
-    return null;
+  useEffect(() => {
+    if (user && !profile) {
+      void refreshProfile();
+    }
+  }, [user, profile, refreshProfile]);
+
+  if (loading || (user && !profile)) {
+    return (
+      <div className="min-h-screen bg-gradient-hero grid place-items-center p-4">
+        <Card className="p-8 shadow-elegant text-center w-full max-w-md">
+          <h1 className="text-xl font-bold">Preparing Activation</h1>
+          <p className="text-muted-foreground mt-2">Please wait while your account is being set up.</p>
+        </Card>
+      </div>
+    );
   }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles.includes("admin")) return <Navigate to="/admin" replace />;
+  if (profile?.role !== "agent") return <Navigate to="/dashboard" replace />;
+  if (profile?.agent_activated) return <Navigate to="/dashboard" replace />;
 
   const handlePayment = async () => {
     if (!user) return toast.error("Not logged in");
