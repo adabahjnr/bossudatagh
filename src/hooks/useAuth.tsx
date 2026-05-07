@@ -300,7 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Fallback in case session/profile bootstrap gets stuck due transient network issues.
       bootstrapTimeoutRef.current = setTimeout(() => {
         if (mounted) setLoading(false);
-      }, 12000);
+      }, 4000);
 
       try {
         const { data } = await supabase.auth.getSession();
@@ -389,16 +389,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-      setLoading(true);
-
-      const timeout = setTimeout(() => {
-        if (mounted) {
-          setLoading(false);
-        }
-      }, 15000);
-      loadingTimeoutRef.current = timeout;
-
+      // Silently update profile in background — do NOT set loading=true here.
+      // Bootstrap already manages loading state for the initial session load.
       try {
         const nextProfile = await getOrCreateProfile(
           nextSession.user.id,
@@ -408,14 +400,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) setProfile(nextProfile);
       } catch {
         if (mounted) setProfile(null);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          clearTimeout(timeout);
-          if (loadingTimeoutRef.current === timeout) {
-            loadingTimeoutRef.current = null;
-          }
-        }
       }
     });
 

@@ -511,3 +511,20 @@ export function AdminMaintenance() {
     </div>
   );
 }
+
+/* ================= LAZY-LOADABLE DEFAULT EXPORT ================= */
+type AdminSection = "overview" | "orders" | "packages" | "agents" | "withdrawals" | "campaigns" | "notifications" | "settings" | "maintenance";
+
+export default function AdminPages({ section }: { section: AdminSection }) {
+  switch (section) {
+    case "overview": return <AdminOverview />;
+    case "orders": return <AdminOrders />;
+    case "packages": return <AdminPackages />;
+    case "agents": return <AdminAgents />;
+    case "withdrawals": return <AdminWithdrawals />;
+    case "campaigns": return <AdminCampaigns />;
+    case "notifications": return <AdminNotifications />;
+    case "settings": return <AdminSettings />;
+    case "maintenance": return <AdminMaintenance />;
+  }
+}

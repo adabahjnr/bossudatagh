@@ -228,18 +228,30 @@ export function SupabaseDataBridge() {
       }));
     };
 
-    void syncAll();
+    // Defer initial sync so auth bootstrap completes first.
+    const initialTimer = setTimeout(() => {
+      void syncAll();
+    }, 800);
+
     const interval = setInterval(() => {
       void syncAll();
-    }, 30000);
+    }, 60000);
 
+    let lastSync = 0;
     const onVisible = () => {
-      if (!document.hidden) void syncAll();
+      if (document.hidden) return;
+      const now = Date.now();
+      // Only refetch if it's been at least 30s since last sync to avoid hammering.
+      if (now - lastSync > 30000) {
+        lastSync = now;
+        void syncAll();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       mounted = false;
+      clearTimeout(initialTimer);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };

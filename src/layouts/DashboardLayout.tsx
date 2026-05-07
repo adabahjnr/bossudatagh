@@ -11,13 +11,13 @@ export default function DashboardLayout() {
   const { currentUser } = useStore();
   const { user, profile, roles, loading } = useAuth();
 
-  if (loading) {
+  // Only block rendering while we truly don't know the auth state yet (no user resolved).
+  if (loading && !user) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
         <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Loading dashboard...</p>
           <p className="text-sm text-muted-foreground">Please wait a moment</p>
-          <p className="text-xs text-muted-foreground mt-2">If this takes longer than a few seconds, please refresh the page.</p>
         </div>
       </div>
     );

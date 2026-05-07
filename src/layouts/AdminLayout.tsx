@@ -1,4 +1,4 @@
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/Logo";
@@ -25,14 +25,13 @@ export default function AdminLayout() {
   const { currentUser, state } = useStore();
   const { user, roles, loading, signOut } = useAuth();
   const nav = useNavigate();
-  const loc = useLocation();
-  if (loading) {
+  // Only block rendering while we truly don't know the auth state yet.
+  if (loading && !user) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
         <div className="text-center space-y-2">
           <p className="text-lg font-semibold">Loading admin dashboard...</p>
           <p className="text-sm text-muted-foreground">Please wait a moment</p>
-          <p className="text-xs text-muted-foreground mt-2">If this takes longer than a few seconds, please refresh the page.</p>
         </div>
       </div>
     );
@@ -77,7 +76,7 @@ export default function AdminLayout() {
           </div>
         </div>
         <main className="flex-1 p-4 md:p-6">
-          <Outlet key={loc.pathname} />
+          <Outlet />
         </main>
       </div>
     </div>
